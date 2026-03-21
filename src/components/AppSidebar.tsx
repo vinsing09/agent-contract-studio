@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Box, ListChecks, PlayCircle, ShieldCheck } from "lucide-react";
+
+const LAST_AGENT_KEY = "agentops:last-agent-id";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -7,11 +10,18 @@ export function AppSidebar() {
 
   // Extract agentId from URL if on an agent-scoped page
   const agentMatch = path.match(/^\/agents\/([^/]+)/);
-  const agentId = agentMatch && agentMatch[1] !== "new" && agentMatch[1] !== "undefined" ? agentMatch[1] : null;
+  const agentId =
+    agentMatch && agentMatch[1] !== "new" && agentMatch[1] !== "undefined" ? agentMatch[1] : null;
   
   // Also extract agentId from test-case detail routes like /agents/{id}/test-cases/{tcId}
   const testCaseDetailMatch = path.match(/^\/agents\/([^/]+)\/test-cases\/[^/]+/);
-  const contextAgentId = testCaseDetailMatch ? testCaseDetailMatch[1] : agentId;
+  const storedAgentId = typeof window !== "undefined" ? localStorage.getItem(LAST_AGENT_KEY) : null;
+  const contextAgentId = testCaseDetailMatch ? testCaseDetailMatch[1] : agentId ?? storedAgentId;
+
+  useEffect(() => {
+    if (!agentId) return;
+    localStorage.setItem(LAST_AGENT_KEY, agentId);
+  }, [agentId]);
 
   const navItems = [
     {
@@ -24,7 +34,7 @@ export function AppSidebar() {
       label: "Test Cases",
       path: contextAgentId ? `/agents/${contextAgentId}/test-cases` : "/agents",
       icon: ListChecks,
-      active: path.includes("/test-cases"),
+      active: path.includes("/test-cases") || path.startsWith("/test-cases/"),
     },
     {
       label: "Eval Runs",
