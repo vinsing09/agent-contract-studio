@@ -57,22 +57,13 @@ export default function AgentList() {
                   <td className="px-4 py-3 font-medium text-foreground">{agent.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{agent.id.slice(0, 12)}…</td>
                   <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-3">
-                      <Link
-                        to={`/agents/${agent.id}/test-cases`}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        View Test Cases
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                      <Link
-                        to={`/agents/${agent.id}/contract`}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <FileText className="w-3 h-3" />
-                        View Contract
-                      </Link>
-                    </div>
+                    <Link
+                      to={`/agents/${agent.id}/contract`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <FileText className="w-3 h-3" />
+                      View Contract
+                    </Link>
                   </td>
                 </tr>
               ))}
