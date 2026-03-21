@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, type Agent, type TestCase } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
-import { Loader2, AlertCircle, Lock, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Loader2, AlertCircle, Lock, ShieldCheck } from "lucide-react";
 
 interface LockedCase {
   id: string;
@@ -10,8 +10,13 @@ interface LockedCase {
   scenario: string;
   tags: string[];
   assertion_count: number;
-  last_run?: string;
-  status?: "PASS" | "FAIL" | "NEVER_RUN";
+  status?: "PASS" | "FAIL" | "BLOCKED" | "NEVER_RUN";
+}
+
+interface RegressionFailure {
+  scenario: string;
+  assertion_id?: string;
+  reason: string;
 }
 
 export default function RegressionDashboard() {
@@ -19,16 +24,35 @@ export default function RegressionDashboard() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
-  const [banner, setBanner] = useState<{ type: "success" | "failure"; message: string; failures: string[] } | null>(null);
+  const [banner, setBanner] = useState<{
+    type: "success" | "failure";
+    message: string;
+    failures: RegressionFailure[];
+  } | null>(null);
 
-  const fetchLockedCases = async () => {
+  const fetchLockedCases = async (): Promise<LockedCase[]> => {
     const agents = await api.getAgents();
     const allLocked: LockedCase[] = [];
     for (const agent of agents) {
       try {
         const testCases = await api.getTestCases(agent.id);
         const locked = testCases.filter((tc) => tc.locked);
+
+        // Try to get latest regression run status
+        let latestStatuses: Record<string, string> = {};
+        try {
+          const latest = await api.getLatestRegressionRun(agent.id);
+          if (latest && latest.results) {
+            for (const r of latest.results) {
+              latestStatuses[r.test_case_id] = r.status;
+            }
+          }
+        } catch {
+          // no regression run yet
+        }
+
         for (const tc of locked) {
+          const rStatus = latestStatuses[tc.id];
           allLocked.push({
             id: tc.id,
             agent_id: agent.id,
@@ -36,7 +60,7 @@ export default function RegressionDashboard() {
             scenario: tc.scenario,
             tags: tc.tags,
             assertion_count: tc.assertions?.length ?? 0,
-            status: tc.status === "PASS" || tc.status === "FAIL" ? tc.status : "NEVER_RUN",
+            status: rStatus === "PASS" ? "PASS" : rStatus === "BLOCKED" || rStatus === "FAIL" ? "BLOCKED" : "NEVER_RUN",
           });
         }
       } catch {
@@ -58,26 +82,48 @@ export default function RegressionDashboard() {
     setRunning(true);
     setError("");
     setBanner(null);
+
+    const agentIds = [...new Set(cases.map((c) => c.agent_id))];
+    const allFailures: RegressionFailure[] = [];
+    let anyBlocked = false;
+
     try {
-      // Run regression for each agent that has locked cases
-      const agentIds = [...new Set(cases.map((c) => c.agent_id))];
       for (const agentId of agentIds) {
-        await api.runEval(agentId, "regression");
+        const res = await api.runRegressionRun(agentId);
+        if (res.status === 422) {
+          anyBlocked = true;
+          try {
+            const body = await res.json();
+            if (body.failures) {
+              for (const f of body.failures) {
+                allFailures.push({
+                  scenario: f.scenario || f.test_case_id || "Unknown",
+                  assertion_id: f.assertion_id,
+                  reason: f.reason || "Assertion failed",
+                });
+              }
+            }
+          } catch {
+            allFailures.push({ scenario: "Unknown", reason: "Regression blocked (HTTP 422)" });
+          }
+        } else if (!res.ok) {
+          throw new Error(`Regression run failed for agent ${agentId}: HTTP ${res.status}`);
+        }
       }
+
       const updated = await fetchLockedCases();
       setCases(updated);
 
-      const failed = updated.filter((c) => c.status === "FAIL");
-      if (failed.length > 0) {
+      if (anyBlocked) {
         setBanner({
           type: "failure",
-          message: `Regression failed — ${failed.length} case(s) blocked deployment`,
-          failures: failed.map((f) => f.scenario),
+          message: "Regression blocked — deployment gate failed",
+          failures: allFailures,
         });
       } else {
         setBanner({
           type: "success",
-          message: "All regression cases passed",
+          message: "All regression cases passed — safe to deploy",
           failures: [],
         });
       }
@@ -109,18 +155,24 @@ export default function RegressionDashboard() {
       )}
 
       {banner && (
-        <div className={`mb-5 px-4 py-3 rounded border text-sm font-medium animate-fade-in ${
+        <div className={`mb-5 rounded border animate-fade-in ${
           banner.type === "success"
             ? "bg-success/10 border-success/30 text-success"
             : "bg-destructive/10 border-destructive/30 text-destructive"
         }`}>
-          <p>{banner.type === "failure" ? "⛔" : "✅"} {banner.message}</p>
+          <div className="px-4 py-3 text-sm font-medium">
+            {banner.type === "failure" ? "⛔" : "✅"} {banner.message}
+          </div>
           {banner.failures.length > 0 && (
-            <ul className="mt-2 space-y-1 text-xs">
+            <div className="px-4 pb-3 space-y-2">
               {banner.failures.map((f, i) => (
-                <li key={i} className="font-mono">• {f}</li>
+                <div key={i} className="px-3 py-2 text-xs font-mono bg-destructive/5 border border-destructive/20 rounded">
+                  <span className="text-foreground font-medium">{f.scenario}</span>
+                  {f.assertion_id && <span className="text-muted-foreground ml-2">assertion: {f.assertion_id}</span>}
+                  <p className="text-destructive mt-0.5">{f.reason}</p>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}
@@ -147,8 +199,7 @@ export default function RegressionDashboard() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Scenario</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Tags</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assertions</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-20">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-24">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,12 +215,13 @@ export default function RegressionDashboard() {
                         {c.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-muted-foreground text-xs">{c.assertion_count}</td>
                     <td className="px-3 py-2.5">
                       {c.status === "NEVER_RUN" ? (
                         <span className="text-[11px] font-mono text-muted-foreground">NEVER RUN</span>
-                      ) : c.status ? (
-                        <StatusBadge status={c.status} />
+                      ) : c.status === "BLOCKED" ? (
+                        <span className="inline-flex px-1.5 py-0.5 text-[11px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">BLOCKED</span>
+                      ) : c.status === "PASS" ? (
+                        <StatusBadge status="PASS" />
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
