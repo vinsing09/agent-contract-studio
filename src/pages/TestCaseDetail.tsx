@@ -1,0 +1,207 @@
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { api, type TestCaseDetail } from "@/lib/api";
+import { CodeBlock, StatusBadge } from "@/components/ui-shared";
+import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox } from "lucide-react";
+
+const assertionTypeColors: Record<string, string> = {
+  tool_called: "bg-primary/15 text-primary border-primary/30",
+  tool_not_called: "bg-warning/15 text-warning border-warning/30",
+  param_contains: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  output_contains: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+};
+
+export default function TestCaseDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [tc, setTc] = useState<TestCaseDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [expandedCalls, setExpandedCalls] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    api.getTestCase(id)
+      .then(setTc)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const toggleCall = (i: number) => {
+    setExpandedCalls((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !tc) {
+    return (
+      <div className="px-6 py-8">
+        <div className="px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          {error || "Test case not found"}
+        </div>
+      </div>
+    );
+  }
+
+  const assertions = tc.assertion_results || tc.assertions;
+  const passCount = assertions.filter((a) => a.result === "PASS").length;
+  const hasResults = assertions.some((a) => a.result);
+  const allPass = hasResults && passCount === assertions.length;
+
+  return (
+    <div className="px-6 py-6 animate-fade-in">
+      <h1 className="text-lg font-semibold text-foreground mb-1 truncate">{tc.scenario}</h1>
+      <p className="text-sm text-muted-foreground mb-6">Test Case {tc.id}</p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* LEFT COLUMN */}
+        <div className="space-y-5">
+          {/* Input */}
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Input</h2>
+            <div className="border-l-2 border-primary/50 pl-4 py-2 bg-card rounded-r border border-l-0 border-border">
+              <p className="text-sm text-foreground italic">{tc.input_text}</p>
+            </div>
+          </section>
+
+          {/* Tool Stubs */}
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>
+            <div className="space-y-2">
+              {tc.tool_stubs.map((stub, i) => (
+                <div key={i} className="border border-border rounded bg-card">
+                  <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm text-foreground font-medium">{stub.name}</span>
+                    {stub.latency_ms != null && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
+                        <Clock className="w-2.5 h-2.5" />
+                        {stub.latency_ms}ms
+                      </span>
+                    )}
+                    {stub.simulate_failure && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">
+                        FAILURE SIMULATED
+                      </span>
+                    )}
+                  </div>
+                  <div className="border-t border-border">
+                    <CodeBlock>{JSON.stringify(stub.response, null, 2)}</CodeBlock>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Assertions */}
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Assertions</h2>
+            <div className="space-y-1">
+              {assertions.map((a, i) => {
+                const typeStyle = assertionTypeColors[a.type] || "bg-muted text-muted-foreground border-border";
+                return (
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 border border-border rounded bg-card text-sm flex-wrap">
+                    <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm shrink-0 ${typeStyle}`}>
+                      {a.type}
+                    </span>
+                    {a.tool_name && <span className="font-mono text-foreground text-xs">{a.tool_name}</span>}
+                    {a.param && <span className="text-muted-foreground text-xs">.{a.param}</span>}
+                    {a.expected != null && (
+                      <span className="text-xs text-muted-foreground font-mono">= {JSON.stringify(a.expected)}</span>
+                    )}
+                    {a.result && (
+                      <span className="ml-auto">
+                        <StatusBadge status={a.result} />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="space-y-5">
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Execution Trace</h2>
+
+            {!tc.trace ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
+                <Inbox className="w-8 h-8 mb-2 opacity-40" />
+                <p className="text-sm">Run eval to see trace</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* Timeline */}
+                <div className="relative pl-4 border-l border-border space-y-3">
+                  {tc.trace.calls.map((call, i) => (
+                    <div key={i} className="border border-border rounded bg-card">
+                      <button
+                        onClick={() => toggleCall(i)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/30 transition-colors"
+                      >
+                        {expandedCalls.has(i) ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-mono font-medium text-foreground">{call.tool_name}</span>
+                        <span className="ml-auto flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm border border-border">
+                            {call.latency_ms}ms
+                          </span>
+                          {call.simulate_failure && (
+                            <span className="text-[10px] font-mono text-destructive bg-destructive/15 px-1.5 py-0.5 rounded-sm border border-destructive/30">
+                              FAILURE
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                      {expandedCalls.has(i) && (
+                        <div className="border-t border-border space-y-0">
+                          <CodeBlock label="Params">{JSON.stringify(call.params, null, 2)}</CodeBlock>
+                          <CodeBlock label="Response">{JSON.stringify(call.response, null, 2)}</CodeBlock>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Final Output */}
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Final Output</h3>
+                  <div className="p-3 bg-card border border-border rounded text-sm text-foreground">
+                    {tc.trace.final_output}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Summary bar */}
+          {hasResults && (
+            <div className={`px-4 py-3 rounded border text-sm font-medium flex items-center gap-2 ${
+              allPass
+                ? "bg-success/10 border-success/30 text-success"
+                : "bg-destructive/10 border-destructive/30 text-destructive"
+            }`}>
+              {allPass ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              {passCount} of {assertions.length} assertions passed
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

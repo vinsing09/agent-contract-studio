@@ -39,18 +39,52 @@ export interface Assertion {
   expected?: any;
   operator?: string;
   result?: "PASS" | "FAIL";
+  reason?: string;
+}
+
+export interface TraceCall {
+  tool_name: string;
+  params: any;
+  response: any;
+  latency_ms: number;
+  simulate_failure?: boolean;
+  order: number;
+}
+
+export interface TestCaseDetail extends TestCase {
+  trace?: {
+    calls: TraceCall[];
+    final_output: string;
+  };
+  assertion_results?: Assertion[];
 }
 
 export interface EvalRun {
   id: string;
   agent_id: string;
+  agent_name?: string;
   run_type: string;
-  results: EvalResult[];
+  started_at: string;
+  status: "PASS" | "FAIL" | "PENDING" | "RUNNING";
+  pass_count: number;
+  total_count: number;
 }
 
 export interface EvalResult {
   test_case_id: string;
+  scenario: string;
   status: "PASS" | "FAIL" | "PENDING";
+  failed_assertions: { type: string; reason: string }[];
+}
+
+export interface RegressionCase {
+  id: string;
+  agent_id: string;
+  scenario: string;
+  tags: string[];
+  assertion_count: number;
+  last_run?: string;
+  status?: "PASS" | "FAIL" | "NEVER_RUN";
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -80,11 +114,19 @@ export const api = {
   getTestCases: (agentId: string) =>
     request<TestCase[]>(`/agents/${agentId}/test-cases`),
 
-  getTestCase: (id: string) => request<TestCase>(`/test-cases/${id}`),
+  getTestCase: (id: string) => request<TestCaseDetail>(`/test-cases/${id}`),
 
-  runEval: (agentId: string) =>
+  runEval: (agentId: string, runType: string = "full") =>
     request<EvalRun>(`/agents/${agentId}/eval-runs`, {
       method: "POST",
-      body: JSON.stringify({ run_type: "full" }),
+      body: JSON.stringify({ run_type: runType }),
     }),
+
+  getEvalRuns: () => request<EvalRun[]>("/eval-runs"),
+
+  getEvalRunResults: (runId: string) =>
+    request<EvalResult[]>(`/eval-runs/${runId}/results`),
+
+  getRegressionCases: (agentId: string) =>
+    request<RegressionCase[]>(`/agents/${agentId}/regression-cases`),
 };
