@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, type Agent, type Contract } from "@/lib/api";
 import { CodeBlock } from "@/components/ui-shared";
-import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, ChevronDown, ChevronRight, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 
 export default function AgentUpload() {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [toolSchemas, setToolSchemas] = useState("");
@@ -12,6 +14,10 @@ export default function AgentUpload() {
   const [contract, setContract] = useState<Contract | null>(null);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [generatingTests, setGeneratingTests] = useState(false);
+  const [testCasesGenerated, setTestCasesGenerated] = useState(false);
+  const [testCaseCount, setTestCaseCount] = useState(0);
+  const [runningEval, setRunningEval] = useState(false);
+  const [evalResult, setEvalResult] = useState<{ passed: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [expandedStubs, setExpandedStubs] = useState<Set<number>>(new Set());
 
@@ -40,6 +46,7 @@ export default function AgentUpload() {
   const handleGenerateContract = async () => {
     if (!agent) return;
     setGeneratingContract(true);
+    setError("");
     try {
       const c = await api.generateContract(agent.id);
       setContract(c);
@@ -53,13 +60,31 @@ export default function AgentUpload() {
   const handleGenerateTests = async () => {
     if (!agent) return;
     setGeneratingTests(true);
+    setError("");
     try {
-      await api.generateTestCases(agent.id);
-      // Navigate to test cases could go here
+      const cases = await api.generateTestCases(agent.id);
+      setTestCaseCount(cases.length);
+      setTestCasesGenerated(true);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setGeneratingTests(false);
+    }
+  };
+
+  const handleRunEval = async () => {
+    if (!agent) return;
+    setRunningEval(true);
+    setError("");
+    try {
+      const run = await api.runEval(agent.id, "full");
+      const results = await api.getEvalRunResults(run.id);
+      const passed = results.filter((r) => r.status === "PASS").length;
+      setEvalResult({ passed, total: results.length });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setRunningEval(false);
     }
   };
 
@@ -137,25 +162,67 @@ export default function AgentUpload() {
             <CodeBlock label="Agent ID">{agent.id}</CodeBlock>
           </div>
 
-          <div className="flex gap-3">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={handleGenerateContract}
               disabled={generatingContract || !!contract}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
             >
               {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {contract ? "Contract Generated" : "Generate Contract"}
+              {contract ? "✓ Contract Generated" : "Generate Contract"}
             </button>
 
             <button
               onClick={handleGenerateTests}
-              disabled={generatingTests || !contract}
+              disabled={generatingTests || !contract || testCasesGenerated}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border bg-card text-foreground rounded hover:bg-muted transition-colors disabled:opacity-50 active:scale-[0.97]"
             >
               {generatingTests && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Generate Test Cases
+              {generatingTests
+                ? "Generating test cases..."
+                : testCasesGenerated
+                  ? `✓ ${testCaseCount} Test Cases`
+                  : "Generate Test Cases"}
+            </button>
+
+            <button
+              onClick={handleRunEval}
+              disabled={runningEval || !testCasesGenerated || !!evalResult}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border bg-card text-foreground rounded hover:bg-muted transition-colors disabled:opacity-50 active:scale-[0.97]"
+            >
+              {runningEval && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {evalResult ? `${evalResult.passed}/${evalResult.total} Passed` : "Run Full Eval"}
             </button>
           </div>
+
+          {/* Eval Result Summary */}
+          {evalResult && (
+            <div className={`px-4 py-3 rounded border text-sm font-medium flex items-center gap-2 ${
+              evalResult.passed === evalResult.total
+                ? "bg-success/10 border-success/30 text-success"
+                : "bg-destructive/10 border-destructive/30 text-destructive"
+            }`}>
+              {evalResult.passed === evalResult.total ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              {evalResult.passed}/{evalResult.total} assertions passed
+              <button
+                onClick={() => navigate("/eval-runs")}
+                className="ml-auto text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+              >
+                View Eval Runs →
+              </button>
+            </div>
+          )}
+
+          {/* Test Cases Link */}
+          {testCasesGenerated && (
+            <button
+              onClick={() => navigate(`/agents/${agent.id}/test-cases`)}
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline underline-offset-2"
+            >
+              View Test Cases <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {error && (
             <div className="px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive">
@@ -163,6 +230,7 @@ export default function AgentUpload() {
             </div>
           )}
 
+          {/* Contract Display */}
           {contract && (
             <div className="space-y-6 animate-fade-in">
               <div>

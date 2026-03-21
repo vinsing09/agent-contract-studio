@@ -122,6 +122,12 @@ export const api = {
 
   getTestCase: (id: string) => request<TestCaseDetail>(`/test-cases/${id}`),
 
+  lockTestCase: (id: string) =>
+    request<void>(`/test-cases/${id}/lock`, { method: "POST" }),
+
+  unlockTestCase: (id: string) =>
+    request<void>(`/test-cases/${id}/unlock`, { method: "POST" }),
+
   runEval: (agentId: string, runType: string = "full") =>
     request<EvalRun>(`/agents/${agentId}/eval-runs`, {
       method: "POST",
@@ -133,4 +139,15 @@ export const api = {
   getEvalRunResults: (runId: string) =>
     request<EvalResult[]>(`/eval-runs/${runId}/results`),
 
+  getLatestRegressionRun: (agentId: string) =>
+    request<any>(`/agents/${agentId}/regression-run/latest`),
+
+  runRegressionRun: (agentId: string) =>
+    fetch(`${API_BASE}/agents/${agentId}/regression-run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+    }),
 };

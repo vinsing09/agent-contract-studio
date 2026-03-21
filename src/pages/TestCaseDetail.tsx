@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { api, type TestCaseDetail } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
-import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox } from "lucide-react";
+import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock } from "lucide-react";
 
 const assertionTypeColors: Record<string, string> = {
   tool_called: "bg-primary/15 text-primary border-primary/30",
@@ -16,6 +16,8 @@ export default function TestCaseDetailPage() {
   const [tc, setTc] = useState<TestCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lockLoading, setLockLoading] = useState(false);
+  const [lockError, setLockError] = useState("");
   const [expandedCalls, setExpandedCalls] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -33,6 +35,24 @@ export default function TestCaseDetailPage() {
       next.has(i) ? next.delete(i) : next.add(i);
       return next;
     });
+  };
+
+  const handleToggleLock = async () => {
+    if (!tc || !id) return;
+    setLockLoading(true);
+    setLockError("");
+    try {
+      if (tc.locked) {
+        await api.unlockTestCase(id);
+      } else {
+        await api.lockTestCase(id);
+      }
+      setTc({ ...tc, locked: !tc.locked });
+    } catch (err: any) {
+      setLockError(err.message);
+    } finally {
+      setLockLoading(false);
+    }
   };
 
   if (loading) {
@@ -61,13 +81,50 @@ export default function TestCaseDetailPage() {
 
   return (
     <div className="px-6 py-6 animate-fade-in">
-      <h1 className="text-lg font-semibold text-foreground mb-1 truncate">{tc.scenario}</h1>
+      <div className="flex items-start justify-between mb-1 gap-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
+          {tc.locked && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-primary/15 text-primary border border-primary/30 rounded-sm shrink-0">
+              <Lock className="w-3 h-3" />
+              Regression Case
+            </span>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {tc.locked ? (
+            <>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
+                🔒 Regression Case
+              </span>
+              <button
+                onClick={handleToggleLock}
+                disabled={lockLoading}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors disabled:opacity-50"
+              >
+                {lockLoading ? <Loader2 className="w-3 h-3 animate-spin inline" /> : "Unlock"}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleToggleLock}
+              disabled={lockLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-primary/30 text-primary rounded hover:bg-primary/10 transition-colors disabled:opacity-50 active:scale-[0.97]"
+            >
+              {lockLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Lock className="w-3 h-3" />}
+              Lock as Regression Case
+            </button>
+          )}
+        </div>
+      </div>
+      {lockError && (
+        <p className="text-xs text-destructive mt-1">{lockError}</p>
+      )}
       <p className="text-sm text-muted-foreground mb-6">Test Case {tc.id}</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT COLUMN */}
         <div className="space-y-5">
-          {/* Input */}
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Input</h2>
             <div className="border-l-2 border-primary/50 pl-4 py-2 bg-card rounded-r border border-l-0 border-border">
@@ -75,7 +132,6 @@ export default function TestCaseDetailPage() {
             </div>
           </section>
 
-          {/* Tool Stubs */}
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>
             <div className="space-y-2">
@@ -103,7 +159,6 @@ export default function TestCaseDetailPage() {
             </div>
           </section>
 
-          {/* Assertions */}
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Assertions</h2>
             <div className="space-y-1">
@@ -143,7 +198,6 @@ export default function TestCaseDetailPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {/* Timeline */}
                 <div className="relative pl-4 border-l border-border space-y-3">
                   {tc.trace.calls.map((call, i) => (
                     <div key={i} className="border border-border rounded bg-card">
@@ -178,7 +232,6 @@ export default function TestCaseDetailPage() {
                   ))}
                 </div>
 
-                {/* Final Output */}
                 <div className="mt-4">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Final Output</h3>
                   <div className="p-3 bg-card border border-border rounded text-sm text-foreground">
@@ -189,7 +242,6 @@ export default function TestCaseDetailPage() {
             )}
           </section>
 
-          {/* Summary bar */}
           {hasResults && (
             <div className={`px-4 py-3 rounded border text-sm font-medium flex items-center gap-2 ${
               allPass

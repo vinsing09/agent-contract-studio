@@ -11,6 +11,7 @@ export default function TestCaseList() {
   const [agentName, setAgentName] = useState("");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [lockingIds, setLockingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -31,13 +32,43 @@ export default function TestCaseList() {
     setError("");
     try {
       const run = await api.runEval(agentId);
-      // Refresh test cases with updated statuses
-      const cases = await api.getTestCases(agentId);
-      setTestCases(cases);
+      // Fetch results and match to test cases
+      const results = await api.getEvalRunResults(run.id);
+      setTestCases((prev) =>
+        prev.map((tc) => {
+          const result = results.find((r) => r.test_case_id === tc.id);
+          if (result) {
+            return { ...tc, status: result.status };
+          }
+          return tc;
+        })
+      );
     } catch (err: any) {
       setError(err.message);
     } finally {
       setRunning(false);
+    }
+  };
+
+  const handleToggleLock = async (tc: TestCase) => {
+    setLockingIds((prev) => new Set(prev).add(tc.id));
+    try {
+      if (tc.locked) {
+        await api.unlockTestCase(tc.id);
+      } else {
+        await api.lockTestCase(tc.id);
+      }
+      setTestCases((prev) =>
+        prev.map((t) => (t.id === tc.id ? { ...t, locked: !t.locked } : t))
+      );
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLockingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(tc.id);
+        return next;
+      });
     }
   };
 
@@ -92,7 +123,7 @@ export default function TestCaseList() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assertions</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-16">Locked</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-20">Status</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-20">Actions</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-36">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -125,13 +156,33 @@ export default function TestCaseList() {
                     {tc.status ? <StatusBadge status={tc.status} /> : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    <button
-                      onClick={() => navigate(`/test-cases/${tc.id}`)}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-muted hover:text-foreground transition-colors active:scale-[0.97]"
-                    >
-                      <Eye className="w-3 h-3" />
-                      View
-                    </button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleToggleLock(tc)}
+                        disabled={lockingIds.has(tc.id)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium border rounded transition-colors active:scale-[0.97] disabled:opacity-50 ${
+                          tc.locked
+                            ? "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                            : "text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        {lockingIds.has(tc.id) ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : tc.locked ? (
+                          <Lock className="w-3 h-3" />
+                        ) : (
+                          <Unlock className="w-3 h-3" />
+                        )}
+                        {tc.locked ? "Locked" : "Lock"}
+                      </button>
+                      <button
+                        onClick={() => navigate(`/test-cases/${tc.id}`)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-muted hover:text-foreground transition-colors active:scale-[0.97]"
+                      >
+                        <Eye className="w-3 h-3" />
+                        View
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
