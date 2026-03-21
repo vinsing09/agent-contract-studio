@@ -74,7 +74,8 @@ export default function TestCaseDetailPage() {
     );
   }
 
-  const assertions = tc.assertion_results || tc.assertions;
+  const toolStubs = Array.isArray(tc.tool_stubs) ? tc.tool_stubs : [];
+  const assertions = Array.isArray(tc.assertion_results) ? tc.assertion_results : Array.isArray(tc.assertions) ? tc.assertions : [];
   const passCount = assertions.filter((a) => a.result === "PASS").length;
   const hasResults = assertions.some((a) => a.result);
   const allPass = hasResults && passCount === assertions.length;
