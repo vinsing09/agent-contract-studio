@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api, type TestCase } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
-import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2 } from "lucide-react";
+import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2, X } from "lucide-react";
 
 export default function TestCaseList() {
   const { agentId } = useParams<{ agentId: string }>();
@@ -52,7 +52,6 @@ export default function TestCaseList() {
       const passedCount = Object.values(statusByCase).filter((s) => s === "PASS").length;
       const totalCount = Object.keys(statusByCase).length;
       setSuccessBanner({ passed: passedCount, total: totalCount });
-      setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -93,12 +92,21 @@ export default function TestCaseList() {
   return (
     <div className="px-6 py-6 animate-fade-in">
       {successBanner && (
-        <div
-          onClick={() => setSuccessBanner(null)}
-          className="mb-4 px-3 py-2 text-sm bg-success/10 border border-success/30 rounded text-success flex items-center gap-2 cursor-pointer transition-opacity"
-        >
+        <div className="mb-4 px-3 py-2 text-sm bg-success/10 border border-success/30 rounded text-success flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          Eval complete — {successBanner.passed}/{successBanner.total} passed. Click View on any row to inspect the trace.
+          <span className="flex-1">
+            Eval complete — {successBanner.passed}/{successBanner.total} passed. Go to{" "}
+            <span
+              onClick={() => navigate("/eval-runs")}
+              className="underline cursor-pointer hover:text-success/80 font-medium"
+            >
+              Eval Runs
+            </span>{" "}
+            to see full results, or click View on any row to inspect individual traces.
+          </span>
+          <button onClick={() => setSuccessBanner(null)} className="p-0.5 hover:bg-success/20 rounded transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
