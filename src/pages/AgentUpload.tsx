@@ -49,7 +49,10 @@ export default function AgentUpload() {
     setError("");
     try {
       const c = await api.generateContract(agent.id);
-      setContract(c);
+      setContract({
+        behavioral_obligations: c.behavioral_obligations || [],
+        tool_stubs: c.tool_stubs || [],
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -170,7 +173,9 @@ export default function AgentUpload() {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
             >
               {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {contract ? "✓ Contract Generated" : "Generate Contract"}
+              {generatingContract
+                ? "Generating contract..."
+                : contract ? "✓ Contract Generated" : "Generate Contract"}
             </button>
 
             <button
@@ -238,7 +243,7 @@ export default function AgentUpload() {
                   Behavioral Obligations
                 </h2>
                 <div className="space-y-2">
-                  {contract.behavioral_obligations.map((obligation, i) => (
+                 {(contract.behavioral_obligations ?? []).map((obligation, i) => (
                     <div
                       key={i}
                       className="flex gap-3 p-3 bg-card border border-border rounded border-l-2 border-l-primary"
@@ -257,7 +262,7 @@ export default function AgentUpload() {
                   Tool Stubs
                 </h2>
                 <div className="space-y-2">
-                  {contract.tool_stubs.map((stub, i) => (
+                  {(contract.tool_stubs ?? []).map((stub, i) => (
                     <div key={i} className="border border-border rounded bg-card overflow-hidden">
                       <button
                         onClick={() => toggleStub(i)}
