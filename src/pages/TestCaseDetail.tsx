@@ -12,7 +12,8 @@ const assertionTypeColors: Record<string, string> = {
 };
 
 export default function TestCaseDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id, agentId } = useParams<{ id: string; agentId: string }>();
+  const navigate = useNavigate();
   const [tc, setTc] = useState<TestCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
