@@ -43,8 +43,13 @@ export default function RegressionDashboard() {
         try {
           const latest = await api.getLatestRegressionRun(agent.id);
           if (latest && latest.results) {
+            const caseResults: Record<string, boolean> = {};
             for (const r of latest.results) {
-              latestStatuses[r.test_case_id] = r.status;
+              if (!(r.test_case_id in caseResults)) caseResults[r.test_case_id] = true;
+              if (!r.passed) caseResults[r.test_case_id] = false;
+            }
+            for (const [tcId, allPassed] of Object.entries(caseResults)) {
+              latestStatuses[tcId] = allPassed ? "PASS" : "BLOCKED";
             }
           }
         } catch {
@@ -94,8 +99,9 @@ export default function RegressionDashboard() {
           anyBlocked = true;
           try {
             const body = await res.json();
-            if (body.failures) {
-              for (const f of body.failures) {
+            const failures = body.failures || body.detail?.failures || (body.detail && typeof body.detail === 'object' ? body.detail.failures : null);
+            if (failures) {
+              for (const f of failures) {
                 allFailures.push({
                   scenario: f.scenario || f.test_case_id || "Unknown",
                   assertion_id: f.assertion_id,
