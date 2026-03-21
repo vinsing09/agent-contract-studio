@@ -262,7 +262,7 @@ export default function AgentUpload() {
                   Tool Stubs
                 </h2>
                 <div className="space-y-2">
-                  {contract.tool_stubs.map((stub, i) => (
+                  {(contract.tool_stubs ?? []).map((stub, i) => (
                     <div key={i} className="border border-border rounded bg-card overflow-hidden">
                       <button
                         onClick={() => toggleStub(i)}
