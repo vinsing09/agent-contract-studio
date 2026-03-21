@@ -52,7 +52,6 @@ export default function TestCaseList() {
       const passedCount = Object.values(statusByCase).filter((s) => s === "PASS").length;
       const totalCount = Object.keys(statusByCase).length;
       setSuccessBanner({ passed: passedCount, total: totalCount });
-      setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err: any) {
       setError(err.message);
     } finally {
