@@ -2,10 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import { Box, ListChecks, PlayCircle, ShieldCheck } from "lucide-react";
 
 const navItems = [
-  { label: "Agents", path: "/agents", icon: Box },
-  { label: "Test Cases", path: "/test-cases", icon: ListChecks },
-  { label: "Eval Runs", path: "/eval-runs", icon: PlayCircle },
-  { label: "Regression", path: "/regression", icon: ShieldCheck },
+  { label: "Agents", path: "/agents/new", icon: Box, matchPaths: ["/agents/new"] },
+  { label: "Test Cases", path: "/agents", icon: ListChecks, matchPaths: ["/agents"] },
+  { label: "Eval Runs", path: "/eval-runs", icon: PlayCircle, matchPaths: ["/eval-runs"] },
+  { label: "Regression", path: "/regression", icon: ShieldCheck, matchPaths: ["/regression"] },
 ];
 
 export function AppSidebar() {
