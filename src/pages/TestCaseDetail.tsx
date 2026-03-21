@@ -83,6 +83,13 @@ export default function TestCaseDetailPage() {
 
   return (
     <div className="px-6 py-6 animate-fade-in">
+      <button
+        onClick={() => navigate(agentId ? `/agents/${agentId}/test-cases` : -1 as any)}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4 active:scale-[0.97]"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back to Test Cases
+      </button>
       <div className="flex items-start justify-between mb-1 gap-4">
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
