@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, Agent } from "@/lib/api";
-import { Box, Loader2, FileText } from "lucide-react";
+import { Box, ArrowRight, Loader2 } from "lucide-react";
 
-export default function AgentList() {
+export default function TestCaseAgentList() {
   const { data: agents, isLoading, error } = useQuery<Agent[]>({
     queryKey: ["agents"],
     queryFn: () => api.getAgents(),
@@ -11,16 +11,8 @@ export default function AgentList() {
 
   return (
     <div className="max-w-[900px] mx-auto px-6 py-10">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-semibold text-foreground">Agents</h1>
-        <Link
-          to="/agents/new"
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-[13px] font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors active:scale-[0.97]"
-        >
-          + New Agent
-        </Link>
-      </div>
-      <p className="text-sm text-muted-foreground mb-8">Manage your AI agents, view test cases and contracts.</p>
+      <h1 className="text-xl font-semibold text-foreground mb-2">Test Cases</h1>
+      <p className="text-sm text-muted-foreground mb-8">Select an agent to view its test cases.</p>
 
       {isLoading && (
         <div className="flex items-center justify-center py-20">
@@ -58,11 +50,11 @@ export default function AgentList() {
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{agent.id.slice(0, 12)}…</td>
                   <td className="px-4 py-3 text-right">
                     <Link
-                      to={`/agents/${agent.id}/contract`}
+                      to={`/agents/${agent.id}/test-cases`}
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                     >
-                      <FileText className="w-3 h-3" />
-                      View Contract
+                      View Test Cases
+                      <ArrowRight className="w-3 h-3" />
                     </Link>
                   </td>
                 </tr>
