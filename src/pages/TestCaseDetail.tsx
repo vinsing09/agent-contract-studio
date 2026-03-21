@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { api, type TestCaseDetail } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock } from "lucide-react";
