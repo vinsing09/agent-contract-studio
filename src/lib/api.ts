@@ -114,6 +114,8 @@ export const api = {
 
   getAgent: (id: string) => request<Agent>(`/agents/${id}`),
 
+  getAgentContract: (id: string) => request<Contract>(`/agents/${id}/contract`),
+
   generateContract: (agentId: string) =>
     request<Contract>(`/agents/${agentId}/contract/generate`, { method: "POST" }),
 
