@@ -49,7 +49,10 @@ export default function AgentUpload() {
     setError("");
     try {
       const c = await api.generateContract(agent.id);
-      setContract(c);
+      setContract({
+        behavioral_obligations: c.behavioral_obligations || [],
+        tool_stubs: c.tool_stubs || [],
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
