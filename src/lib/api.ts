@@ -104,6 +104,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getAgents: () => request<Agent[]>("/agents"),
+
   createAgent: (data: { name: string; system_prompt: string; tool_schemas: any }) =>
     request<Agent>("/agents", { method: "POST", body: JSON.stringify(data) }),
 
