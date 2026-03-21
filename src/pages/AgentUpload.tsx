@@ -173,7 +173,9 @@ export default function AgentUpload() {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
             >
               {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {contract ? "✓ Contract Generated" : "Generate Contract"}
+              {generatingContract
+                ? "Generating contract..."
+                : contract ? "✓ Contract Generated" : "Generate Contract"}
             </button>
 
             <button
