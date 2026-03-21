@@ -71,10 +71,13 @@ export interface EvalRun {
 }
 
 export interface EvalResult {
+  id: string;
+  run_id: string;
   test_case_id: string;
-  scenario: string;
-  status: "PASS" | "FAIL" | "PENDING";
-  failed_assertions: { type: string; reason: string }[];
+  assertion_id: string;
+  passed: boolean | null;
+  reason: string;
+  result_type: string;
 }
 
 export interface RegressionCase {

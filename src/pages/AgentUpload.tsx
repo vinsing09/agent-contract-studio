@@ -79,7 +79,7 @@ export default function AgentUpload() {
     try {
       const run = await api.runEval(agent.id, "full");
       const results = await api.getEvalRunResults(run.id);
-      const passed = results.filter((r) => r.status === "PASS").length;
+      const passed = results.filter((r) => r.passed === true).length;
       setEvalResult({ passed, total: results.length });
     } catch (err: any) {
       setError(err.message);
