@@ -49,10 +49,7 @@ export default function AgentUpload() {
     setError("");
     try {
       const c = await api.generateContract(agent.id);
-      setContract({
-        behavioral_obligations: c.behavioral_obligations || [],
-        tool_stubs: c.tool_stubs || [],
-      });
+      setContract(c);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -236,14 +233,14 @@ export default function AgentUpload() {
           )}
 
           {/* Contract Display */}
-          {contract && (
+          {contract && contract.obligations && (
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wider">
-                  Behavioral Obligations
+                  Obligations
                 </h2>
                 <div className="space-y-2">
-                 {(contract.behavioral_obligations ?? []).map((obligation, i) => (
+                  {(contract.obligations ?? []).map((obligation, i) => (
                     <div
                       key={i}
                       className="flex gap-3 p-3 bg-card border border-border rounded border-l-2 border-l-primary"
@@ -257,33 +254,35 @@ export default function AgentUpload() {
                 </div>
               </div>
 
-              <div>
-                <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wider">
-                  Tool Stubs
-                </h2>
-                <div className="space-y-2">
-                  {(contract.tool_stubs ?? []).map((stub, i) => (
-                    <div key={i} className="border border-border rounded bg-card overflow-hidden">
-                      <button
-                        onClick={() => toggleStub(i)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
-                      >
-                        {expandedStubs.has(i) ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              {contract.tool_stubs && (
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wider">
+                    Tool Stubs
+                  </h2>
+                  <div className="space-y-2">
+                    {Object.entries(contract.tool_stubs).map(([toolName, stub], i) => (
+                      <div key={toolName} className="border border-border rounded bg-card overflow-hidden">
+                        <button
+                          onClick={() => toggleStub(i)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                        >
+                          {expandedStubs.has(i) ? (
+                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+                          <span className="font-mono text-primary">{toolName}</span>
+                        </button>
+                        {expandedStubs.has(i) && (
+                          <div className="border-t border-border">
+                            <CodeBlock>{JSON.stringify(stub, null, 2)}</CodeBlock>
+                          </div>
                         )}
-                        <span className="font-mono text-primary">{stub.name}</span>
-                      </button>
-                      {expandedStubs.has(i) && (
-                        <div className="border-t border-border">
-                          <CodeBlock>{JSON.stringify(stub.response, null, 2)}</CodeBlock>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

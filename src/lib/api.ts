@@ -9,8 +9,8 @@ export interface Agent {
 }
 
 export interface Contract {
-  behavioral_obligations: string[];
-  tool_stubs: ToolStub[];
+  obligations: string[];
+  tool_stubs: Record<string, { response: any; latency_ms?: number; simulate_failure?: boolean }>;
 }
 
 export interface ToolStub {
