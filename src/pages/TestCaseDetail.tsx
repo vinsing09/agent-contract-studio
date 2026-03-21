@@ -40,12 +40,16 @@ export default function TestCaseDetailPage() {
 
   // Fetch latest eval run results for this test case
   useEffect(() => {
-    if (!agentId || !id) return;
+    if (!id) return;
+    // Use agentId from URL, or from test case data
+    const resolvedAgentId = agentId;
+    if (!resolvedAgentId) return;
+
     setEvalLoading(true);
     api.getEvalRuns()
       .then((runs) => {
         const agentRuns = runs
-          .filter((r) => r.agent_id === agentId)
+          .filter((r) => r.agent_id === resolvedAgentId)
           .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
         if (agentRuns.length === 0) return null;
         return api.getEvalRunResults(agentRuns[0].id);
@@ -108,6 +112,10 @@ export default function TestCaseDetailPage() {
   const assertions = Array.isArray(tc.assertions) ? tc.assertions : [];
   const passedCount = evalResults.filter((r) => r.passed === true).length;
   const hasEvalResults = evalResults.length > 0;
+
+  // Split eval results into deterministic and semantic
+  const deterministicResults = evalResults.filter((r) => r.result_type !== "semantic");
+  const semanticResults = evalResults.filter((r) => r.result_type === "semantic");
 
   return (
     <div className="px-6 py-6 animate-fade-in">
@@ -273,20 +281,38 @@ export default function TestCaseDetailPage() {
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
               </div>
             ) : hasEvalResults ? (
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assertion Results</h3>
-                <div className="space-y-1">
-                  {evalResults.map((r, i) => (
-                    <div key={r.id ?? i} className="flex items-start gap-2 px-3 py-2 border border-border rounded bg-card text-sm">
-                      <PassedBadge passed={r.passed} />
-                      <span className="font-mono text-xs text-foreground shrink-0">{r.assertion_id}</span>
-                      <span className="text-xs text-muted-foreground">{r.reason || "—"}</span>
-                      {r.result_type === "semantic" && (
-                        <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm ml-auto shrink-0">AI judge</span>
-                      )}
+              <div className="space-y-4">
+                {deterministicResults.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Deterministic Checks</h3>
+                    <div className="space-y-1">
+                      {deterministicResults.map((r, i) => (
+                        <div key={r.id ?? i} className="flex items-start gap-2 px-3 py-2 border border-border rounded bg-card text-sm">
+                          <PassedBadge passed={r.passed} />
+                          <span className="font-mono text-xs text-foreground shrink-0">{r.assertion_id}</span>
+                          <span className="text-xs text-muted-foreground">{r.reason || "—"}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {semanticResults.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Judges</h3>
+                    <div className="space-y-1">
+                      {semanticResults.map((r, i) => (
+                        <div key={r.id ?? i} className="flex items-start gap-2 px-3 py-2 border border-border rounded bg-card text-sm">
+                          <PassedBadge passed={r.passed} />
+                          <span className="font-mono text-xs text-foreground shrink-0">{r.assertion_id}</span>
+                          <span className="text-xs text-muted-foreground">{r.reason || "—"}</span>
+                          <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm ml-auto shrink-0">AI judge</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className={`px-4 py-3 rounded border text-sm font-medium flex items-center gap-2 ${
                   passedCount === evalResults.length
                     ? "bg-success/10 border-success/30 text-success"
@@ -295,13 +321,13 @@ export default function TestCaseDetailPage() {
                   {passedCount === evalResults.length
                     ? <CheckCircle2 className="w-4 h-4" />
                     : <XCircle className="w-4 h-4" />}
-                  {passedCount} of {evalResults.length} assertions passed
+                  {passedCount} of {evalResults.length} checks passed
                 </div>
               </div>
             ) : !tc.trace ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
                 <Inbox className="w-8 h-8 mb-2 opacity-40" />
-                <p className="text-sm">Run eval to see trace</p>
+                <p className="text-sm">Run eval to see results</p>
               </div>
             ) : null}
           </section>
