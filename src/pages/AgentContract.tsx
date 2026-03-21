@@ -8,6 +8,7 @@ export default function AgentContract() {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const [agent, setAgent] = useState<Agent | null>(null);
+  const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedStubs, setExpandedStubs] = useState<Set<string>>(new Set());
@@ -15,8 +16,16 @@ export default function AgentContract() {
   useEffect(() => {
     if (!agentId) return;
     setLoading(true);
-    api.getAgent(agentId)
-      .then(setAgent)
+    setError("");
+
+    Promise.all([
+      api.getAgent(agentId),
+      api.getAgentContract(agentId).catch(() => null),
+    ])
+      .then(([agentData, contractData]) => {
+        setAgent(agentData);
+        setContract(contractData || agentData.contract || null);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [agentId]);
@@ -47,8 +56,6 @@ export default function AgentContract() {
       </div>
     );
   }
-
-  const contract = agent.contract;
 
   return (
     <div className="max-w-[800px] mx-auto px-6 py-6 animate-fade-in">
