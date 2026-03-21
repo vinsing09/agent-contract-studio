@@ -43,8 +43,13 @@ export default function RegressionDashboard() {
         try {
           const latest = await api.getLatestRegressionRun(agent.id);
           if (latest && latest.results) {
+            const caseResults: Record<string, boolean> = {};
             for (const r of latest.results) {
-              latestStatuses[r.test_case_id] = r.status;
+              if (!(r.test_case_id in caseResults)) caseResults[r.test_case_id] = true;
+              if (!r.passed) caseResults[r.test_case_id] = false;
+            }
+            for (const [tcId, allPassed] of Object.entries(caseResults)) {
+              latestStatuses[tcId] = allPassed ? "PASS" : "BLOCKED";
             }
           }
         } catch {
