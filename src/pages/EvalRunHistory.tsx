@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { api, type EvalRun, type EvalResult } from "@/lib/api";
 import { StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight } from "lucide-react";
