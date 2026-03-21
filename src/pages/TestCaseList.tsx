@@ -34,16 +34,21 @@ export default function TestCaseList() {
     setRunning(true);
     setError("");
     try {
-      const run = await api.runEval(agentId);
-      // Fetch results and match to test cases
-      const results = await api.getEvalRunResults(run.id);
+      const response = await api.runEval(agentId) as any;
+      const runId = response?.eval_run?.id || response?.id;
+      const results = await api.getEvalRunResults(runId);
+      // Group assertion-level results by test_case_id
+      const statusByCase: Record<string, "PASS" | "FAIL"> = {};
+      for (const r of results) {
+        const tcId = (r as any).test_case_id;
+        if (!tcId) continue;
+        if (statusByCase[tcId] === "FAIL") continue;
+        statusByCase[tcId] = (r as any).passed === false ? "FAIL" : "PASS";
+      }
       setTestCases((prev) =>
         prev.map((tc) => {
-          const result = results.find((r) => r.test_case_id === tc.id);
-          if (result) {
-            return { ...tc, status: result.status };
-          }
-          return tc;
+          const s = statusByCase[tc.id];
+          return s ? { ...tc, status: s } : tc;
         })
       );
     } catch (err: any) {
