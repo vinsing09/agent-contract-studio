@@ -40,8 +40,11 @@ export default function TestCaseList() {
       for (const r of results) {
         const tcId = (r as any).test_case_id;
         if (!tcId) continue;
-        if (statusByCase[tcId] === "FAIL") continue;
-        statusByCase[tcId] = (r as any).passed === false ? "FAIL" : "PASS";
+        if ((r as any).passed === false) {
+          statusByCase[tcId] = "FAIL";
+        } else if (statusByCase[tcId] !== "FAIL" && (r as any).passed === true) {
+          statusByCase[tcId] = "PASS";
+        }
       }
       setTestCases((prev) =>
         prev.map((tc) => {

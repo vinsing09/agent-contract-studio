@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { api, type EvalRun, type EvalResult } from "@/lib/api";
+import { api, type EvalRun, type EvalResult, type Agent } from "@/lib/api";
 import { StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function PassedBadge({ passed }: { passed: boolean | null }) {
   if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
@@ -27,9 +28,20 @@ export default function EvalRunHistory() {
   const [results, setResults] = useState<Record<string, EvalResult[]>>({});
   const [loadingResults, setLoadingResults] = useState<string | null>(null);
   const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number }>>({});
+  const [agentNames, setAgentNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setLoading(true);
+
+    // Fetch agents for name lookup
+    api.getAgents()
+      .then((agents) => {
+        const map: Record<string, string> = {};
+        for (const a of agents) map[a.id] = a.name;
+        setAgentNames(map);
+      })
+      .catch(() => {});
+
     api.getEvalRuns()
       .then(async (fetchedRuns) => {
         setRuns(fetchedRuns);
@@ -79,6 +91,16 @@ export default function EvalRunHistory() {
     );
   }
 
+  // Sort runs by started_at ascending so oldest = Run #1
+  const sortedRuns = [...runs].sort(
+    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+  );
+  // Build run number map
+  const runNumberMap: Record<string, number> = {};
+  sortedRuns.forEach((run, i) => { runNumberMap[run.id] = i + 1; });
+  // Display newest first
+  const displayRuns = [...sortedRuns].reverse();
+
   return (
     <div className="px-6 py-6 animate-fade-in">
       <h1 className="text-lg font-semibold text-foreground mb-1">Eval Runs</h1>
@@ -102,7 +124,7 @@ export default function EvalRunHistory() {
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-8"></th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Run ID</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Run</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Started</th>
@@ -111,7 +133,7 @@ export default function EvalRunHistory() {
               </tr>
             </thead>
             <tbody>
-              {runs.map((run) => {
+              {displayRuns.map((run) => {
                 const isExpanded = expandedRun === run.id;
                 const runResults = results[run.id];
                 const rate = passRates[run.id];
@@ -120,6 +142,7 @@ export default function EvalRunHistory() {
                   : "bg-warning/15 text-warning border-warning/30";
                 const pct = rate && rate.total > 0 ? (rate.passed / rate.total) * 100 : 0;
                 const barColor = rate && rate.total > 0 && rate.passed === rate.total ? "bg-success" : "bg-destructive";
+                const runNum = runNumberMap[run.id];
                 return (
                   <React.Fragment key={run.id}>
                     <tr
@@ -129,8 +152,19 @@ export default function EvalRunHistory() {
                       <td className="px-3 py-2.5 text-muted-foreground">
                         {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-xs text-foreground">{run.id.slice(0, 8)}…</td>
-                      <td className="px-3 py-2.5 text-foreground">{run.agent_name || run.agent_id.slice(0, 8)}</td>
+                      <td className="px-3 py-2.5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-mono text-xs text-foreground cursor-default">Run #{runNum}</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="font-mono text-xs">
+                            {run.id}
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td className="px-3 py-2.5 text-foreground">
+                        {agentNames[run.agent_id] || run.agent_name || run.agent_id.slice(0, 8)}
+                      </td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${typeBadge}`}>
                           {run.run_type}

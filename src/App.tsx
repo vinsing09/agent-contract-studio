@@ -20,7 +20,7 @@ const App = () => (
       <BrowserRouter>
         <AppLayout>
           <Routes>
-            <Route path="/" element={<Navigate to="/agents/new" replace />} />
+            <Route path="/" element={<Navigate to="/agents" replace />} />
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />
