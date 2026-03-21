@@ -11,8 +11,8 @@ export default function AgentList() {
 
   return (
     <div className="max-w-[900px] mx-auto px-6 py-10">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-xl font-semibold text-foreground">Agents</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-xl font-semibold text-foreground">Agents & Test Cases</h1>
         <Link
           to="/agents/new"
           className="inline-flex items-center gap-2 px-3 py-1.5 text-[13px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
