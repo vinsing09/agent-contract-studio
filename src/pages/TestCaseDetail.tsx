@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, type TestCaseDetail } from "@/lib/api";
+import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock, ArrowLeft } from "lucide-react";
 
@@ -20,6 +20,8 @@ export default function TestCaseDetailPage() {
   const [lockLoading, setLockLoading] = useState(false);
   const [lockError, setLockError] = useState("");
   const [expandedCalls, setExpandedCalls] = useState<Set<number>>(new Set());
+  const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
+  const [evalLoading, setEvalLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -29,6 +31,27 @@ export default function TestCaseDetailPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Fetch latest eval run results for this test case
+  useEffect(() => {
+    if (!agentId || !id) return;
+    setEvalLoading(true);
+    api.getEvalRuns()
+      .then((runs) => {
+        const agentRuns = runs
+          .filter((r) => r.agent_id === agentId && (r.status === "PASS" || r.status === "FAIL"))
+          .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+        if (agentRuns.length === 0) return null;
+        return api.getEvalRunResults(agentRuns[0].id);
+      })
+      .then((results) => {
+        if (!results) return;
+        const match = results.find((r) => r.test_case_id === id);
+        if (match) setEvalResult(match);
+      })
+      .catch(() => {}) // silently ignore - eval results are optional
+      .finally(() => setEvalLoading(false));
+  }, [agentId, id]);
 
   const toggleCall = (i: number) => {
     setExpandedCalls((prev) => {
