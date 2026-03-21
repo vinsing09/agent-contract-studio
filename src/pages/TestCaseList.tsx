@@ -34,8 +34,9 @@ export default function TestCaseList() {
     setRunning(true);
     setError("");
     try {
-      const run = await api.runEval(agentId);
-      const results = await api.getEvalRunResults(run.id);
+      const response = await api.runEval(agentId) as any;
+      const runId = response?.eval_run?.id || response?.id;
+      const results = await api.getEvalRunResults(runId);
       // Group assertion-level results by test_case_id
       const statusByCase: Record<string, "PASS" | "FAIL"> = {};
       for (const r of results) {
