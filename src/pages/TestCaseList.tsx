@@ -179,7 +179,7 @@ export default function TestCaseList() {
                         {tc.locked ? "Locked" : "Lock"}
                       </button>
                       <button
-                        onClick={() => navigate(`/test-cases/${tc.id}`)}
+                        onClick={() => navigate(`/agents/${agentId}/test-cases/${tc.id}`)}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-muted hover:text-foreground transition-colors active:scale-[0.97]"
                       >
                         <Eye className="w-3 h-3" />
