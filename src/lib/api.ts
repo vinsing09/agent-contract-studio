@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
 
 export interface Agent {
   id: string;
