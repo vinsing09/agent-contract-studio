@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { api, type EvalRun, type EvalResult } from "@/lib/api";
 import { StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight } from "lucide-react";
@@ -106,9 +106,8 @@ export default function EvalRunHistory() {
                 const pct = rate && rate.total > 0 ? (rate.passed / rate.total) * 100 : 0;
                 const barColor = rate && rate.total > 0 && rate.passed === rate.total ? "bg-success" : "bg-destructive";
                 return (
-                  <>
+                  <React.Fragment key={run.id}>
                     <tr
-                      key={run.id}
                       className="border-b border-border hover:bg-muted/20 transition-colors cursor-pointer"
                       onClick={() => toggleExpand(run.id)}
                     >
@@ -143,35 +142,53 @@ export default function EvalRunHistory() {
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr key={`${run.id}-detail`} className="border-b border-border">
+                      <tr className="border-b border-border">
                         <td colSpan={7} className="px-6 py-4 bg-muted/10">
                           {loadingResults === run.id ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading results…
                             </div>
                           ) : runResults ? (
-                            <div className="space-y-1">
-                              {runResults.map((r, i) => (
-                                <div key={i} className="flex items-start gap-3 px-3 py-2 border border-border rounded bg-card text-sm">
-                                  <div className="flex-1 min-w-0">
-                                    <span className="text-foreground">{r.scenario}</span>
-                                  </div>
-                                  <StatusBadge status={r.status} />
-                                  {r.failed_assertions.length > 0 && (
-                                    <div className="text-xs text-destructive space-y-0.5 max-w-[300px]">
-                                      {r.failed_assertions.map((fa, j) => (
-                                        <div key={j} className="font-mono">{fa.type}: {fa.reason}</div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
+                            runResults.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No results for this run.</p>
+                            ) : (
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-border">
+                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Test Case ID</th>
+                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Scenario</th>
+                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Result</th>
+                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Reason</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {runResults.map((r, i) => {
+                                    const failures = r.failed_assertions ?? [];
+                                    return (
+                                      <tr key={i} className="border-b border-border last:border-b-0">
+                                        <td className="px-2 py-2 font-mono text-xs text-foreground">{r.test_case_id?.slice(0, 8) ?? "—"}…</td>
+                                        <td className="px-2 py-2 text-foreground max-w-[200px] truncate">{r.scenario}</td>
+                                        <td className="px-2 py-2"><StatusBadge status={r.status} /></td>
+                                        <td className="px-2 py-2 text-xs text-destructive max-w-[300px]">
+                                          {failures.length > 0
+                                            ? failures.map((fa, j) => (
+                                                <div key={j} className="font-mono">{fa.type}: {fa.reason}</div>
+                                              ))
+                                            : <span className="text-muted-foreground">—</span>}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            )
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No results available.</p>
+                          )}
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>
