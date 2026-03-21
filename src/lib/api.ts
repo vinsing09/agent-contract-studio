@@ -89,8 +89,12 @@ export interface RegressionCase {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",
+      ...options?.headers,
+    },
   });
   if (!res.ok) {
     const text = await res.text();
