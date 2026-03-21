@@ -10,6 +10,7 @@ import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
 import RegressionDashboard from "@/pages/RegressionDashboard";
 import AgentContract from "@/pages/AgentContract";
+import TestCaseAgentList from "@/pages/TestCaseAgentList";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:agentId/contract" element={<AgentContract />} />
+            <Route path="/test-cases" element={<TestCaseAgentList />} />
             <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />
             <Route path="/agents/:agentId/test-cases/:id" element={<TestCaseDetail />} />
             <Route path="/test-cases/:id" element={<TestCaseDetail />} />

@@ -47,9 +47,9 @@ export function AppSidebar() {
     },
     {
       label: "Test Cases",
-      path: contextAgentId ? `/agents/${contextAgentId}/test-cases` : "/agents",
+      path: "/test-cases",
       icon: ListChecks,
-      active: path.includes("/test-cases") || path.startsWith("/test-cases/"),
+      active: path === "/test-cases" || path.includes("/test-cases"),
     },
     {
       label: "Eval Runs",
