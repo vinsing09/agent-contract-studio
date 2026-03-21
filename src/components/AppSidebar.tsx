@@ -7,7 +7,11 @@ export function AppSidebar() {
 
   // Extract agentId from URL if on an agent-scoped page
   const agentMatch = path.match(/^\/agents\/([^/]+)/);
-  const agentId = agentMatch && agentMatch[1] !== "new" ? agentMatch[1] : null;
+  const agentId = agentMatch && agentMatch[1] !== "new" && agentMatch[1] !== "undefined" ? agentMatch[1] : null;
+  
+  // Also extract agentId from test-case detail routes like /agents/{id}/test-cases/{tcId}
+  const testCaseDetailMatch = path.match(/^\/agents\/([^/]+)\/test-cases\/[^/]+/);
+  const contextAgentId = testCaseDetailMatch ? testCaseDetailMatch[1] : agentId;
 
   const navItems = [
     {
@@ -18,7 +22,7 @@ export function AppSidebar() {
     },
     {
       label: "Test Cases",
-      path: agentId ? `/agents/${agentId}/test-cases` : "/agents",
+      path: contextAgentId ? `/agents/${contextAgentId}/test-cases` : "/agents",
       icon: ListChecks,
       active: path.includes("/test-cases"),
     },
