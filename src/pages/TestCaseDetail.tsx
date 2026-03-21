@@ -74,7 +74,8 @@ export default function TestCaseDetailPage() {
     );
   }
 
-  const assertions = tc.assertion_results || tc.assertions;
+  const toolStubs = Array.isArray(tc.tool_stubs) ? tc.tool_stubs : [];
+  const assertions = Array.isArray(tc.assertion_results) ? tc.assertion_results : Array.isArray(tc.assertions) ? tc.assertions : [];
   const passCount = assertions.filter((a) => a.result === "PASS").length;
   const hasResults = assertions.some((a) => a.result);
   const allPass = hasResults && passCount === assertions.length;
@@ -135,7 +136,7 @@ export default function TestCaseDetailPage() {
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>
             <div className="space-y-2">
-              {tc.tool_stubs.map((stub, i) => (
+              {toolStubs.map((stub, i) => (
                 <div key={i} className="border border-border rounded bg-card">
                   <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-sm text-foreground font-medium">{stub.name}</span>
