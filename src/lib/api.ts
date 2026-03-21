@@ -133,6 +133,4 @@ export const api = {
   getEvalRunResults: (runId: string) =>
     request<EvalResult[]>(`/eval-runs/${runId}/results`),
 
-  getRegressionCases: (agentId: string) =>
-    request<RegressionCase[]>(`/agents/${agentId}/regression-cases`),
 };
