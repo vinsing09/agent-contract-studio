@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
 
 export interface Agent {
   id: string;
@@ -89,8 +89,12 @@ export interface RegressionCase {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",
+      ...options?.headers,
+    },
   });
   if (!res.ok) {
     const text = await res.text();
@@ -100,6 +104,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getAgents: () => request<Agent[]>("/agents"),
+
   createAgent: (data: { name: string; system_prompt: string; tool_schemas: any }) =>
     request<Agent>("/agents", { method: "POST", body: JSON.stringify(data) }),
 

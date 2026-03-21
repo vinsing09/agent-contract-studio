@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import AgentUpload from "@/pages/AgentUpload";
+import AgentList from "@/pages/AgentList";
 import TestCaseList from "@/pages/TestCaseList";
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
@@ -20,6 +21,7 @@ const App = () => (
         <AppLayout>
           <Routes>
             <Route path="/" element={<Navigate to="/agents/new" replace />} />
+            <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />
             <Route path="/test-cases/:id" element={<TestCaseDetail />} />
