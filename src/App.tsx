@@ -24,6 +24,7 @@ const App = () => (
             <Route path="/" element={<Navigate to="/agents" replace />} />
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
+            <Route path="/agents/:agentId/contract" element={<AgentContract />} />
             <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />
             <Route path="/agents/:agentId/test-cases/:id" element={<TestCaseDetail />} />
             <Route path="/test-cases/:id" element={<TestCaseDetail />} />
