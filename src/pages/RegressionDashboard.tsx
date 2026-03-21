@@ -1,36 +1,70 @@
 import { useState, useEffect } from "react";
-import { api, type RegressionCase } from "@/lib/api";
+import { api, type Agent, type TestCase } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, Lock, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 
-// For now, we'll use a default agent ID or allow selection
-// In a real app this would come from route params or a selector
+interface LockedCase {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  scenario: string;
+  tags: string[];
+  assertion_count: number;
+  last_run?: string;
+  status?: "PASS" | "FAIL" | "NEVER_RUN";
+}
+
 export default function RegressionDashboard() {
-  const [cases, setCases] = useState<RegressionCase[]>([]);
+  const [cases, setCases] = useState<LockedCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [banner, setBanner] = useState<{ type: "success" | "failure"; message: string; failures: string[] } | null>(null);
 
-  // Placeholder agent ID — in production, this would be selected
-  const agentId = "default";
+  const fetchLockedCases = async () => {
+    const agents = await api.getAgents();
+    const allLocked: LockedCase[] = [];
+    for (const agent of agents) {
+      try {
+        const testCases = await api.getTestCases(agent.id);
+        const locked = testCases.filter((tc) => tc.locked);
+        for (const tc of locked) {
+          allLocked.push({
+            id: tc.id,
+            agent_id: agent.id,
+            agent_name: agent.name,
+            scenario: tc.scenario,
+            tags: tc.tags,
+            assertion_count: tc.assertions?.length ?? 0,
+            status: tc.status === "PASS" || tc.status === "FAIL" ? tc.status : "NEVER_RUN",
+          });
+        }
+      } catch {
+        // skip agents with no test cases
+      }
+    }
+    return allLocked;
+  };
 
   useEffect(() => {
     setLoading(true);
-    api.getRegressionCases(agentId)
+    fetchLockedCases()
       .then(setCases)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [agentId]);
+  }, []);
 
   const handleRunRegression = async () => {
     setRunning(true);
     setError("");
     setBanner(null);
     try {
-      const run = await api.runEval(agentId, "regression");
-      // Refresh cases
-      const updated = await api.getRegressionCases(agentId);
+      // Run regression for each agent that has locked cases
+      const agentIds = [...new Set(cases.map((c) => c.agent_id))];
+      for (const agentId of agentIds) {
+        await api.runEval(agentId, "regression");
+      }
+      const updated = await fetchLockedCases();
       setCases(updated);
 
       const failed = updated.filter((c) => c.status === "FAIL");
@@ -62,14 +96,6 @@ export default function RegressionDashboard() {
     );
   }
 
-  const statusIcon = (status?: string) => {
-    switch (status) {
-      case "PASS": return <ShieldCheck className="w-4 h-4 text-success" />;
-      case "FAIL": return <ShieldX className="w-4 h-4 text-destructive" />;
-      default: return <ShieldAlert className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
-
   return (
     <div className="px-6 py-6 animate-fade-in">
       <h1 className="text-lg font-semibold text-foreground mb-1">Regression Dashboard</h1>
@@ -99,7 +125,6 @@ export default function RegressionDashboard() {
         </div>
       )}
 
-      {/* Regression Suite */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Regression Suite</h2>
@@ -120,9 +145,9 @@ export default function RegressionDashboard() {
                 <tr className="border-b border-border bg-muted/30">
                   <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-10"></th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Scenario</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Tags</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assertions</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Last Run</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-20">Status</th>
                 </tr>
               </thead>
@@ -133,15 +158,13 @@ export default function RegressionDashboard() {
                       <Lock className="w-3.5 h-3.5 text-primary mx-auto" />
                     </td>
                     <td className="px-3 py-2.5 text-foreground">{c.scenario}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground text-xs">{c.agent_name}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap gap-1">
                         {c.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground text-xs">{c.assertion_count}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground text-xs font-mono">
-                      {c.last_run ? new Date(c.last_run).toLocaleDateString() : "—"}
-                    </td>
                     <td className="px-3 py-2.5">
                       {c.status === "NEVER_RUN" ? (
                         <span className="text-[11px] font-mono text-muted-foreground">NEVER RUN</span>
@@ -159,7 +182,6 @@ export default function RegressionDashboard() {
         )}
       </section>
 
-      {/* Run button */}
       <button
         onClick={handleRunRegression}
         disabled={running || cases.length === 0}
