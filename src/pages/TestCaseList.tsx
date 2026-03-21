@@ -153,11 +153,19 @@ export default function TestCaseList() {
       )}
 
       <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">{agentName || "Agent"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {testCases.length} test case{testCases.length !== 1 ? "s" : ""}
-          </p>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/test-cases"
+            className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">{agentName || "Agent"}</h1>
+            <p className="text-sm text-muted-foreground">
+              {testCases.length} test case{testCases.length !== 1 ? "s" : ""}
+            </p>
+          </div>
         </div>
         <button
           onClick={handleRunEval}
