@@ -1,12 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Box, ListChecks, PlayCircle, ShieldCheck } from "lucide-react";
+import { api } from "@/lib/api";
 
 const LAST_AGENT_KEY = "agentops:last-agent-id";
 
 export function AppSidebar() {
   const location = useLocation();
   const path = location.pathname;
+  const [fallbackAgentId, setFallbackAgentId] = useState<string | null>(null);
 
   // Extract agentId from URL if on an agent-scoped page
   const agentMatch = path.match(/^\/agents\/([^/]+)/);
@@ -16,12 +18,25 @@ export function AppSidebar() {
   // Also extract agentId from test-case detail routes like /agents/{id}/test-cases/{tcId}
   const testCaseDetailMatch = path.match(/^\/agents\/([^/]+)\/test-cases\/[^/]+/);
   const storedAgentId = typeof window !== "undefined" ? localStorage.getItem(LAST_AGENT_KEY) : null;
-  const contextAgentId = testCaseDetailMatch ? testCaseDetailMatch[1] : agentId ?? storedAgentId;
+  const contextAgentId = testCaseDetailMatch ? testCaseDetailMatch[1] : agentId ?? storedAgentId ?? fallbackAgentId;
 
   useEffect(() => {
     if (!agentId) return;
     localStorage.setItem(LAST_AGENT_KEY, agentId);
   }, [agentId]);
+
+  // Fetch first agent as fallback when no context exists
+  useEffect(() => {
+    if (contextAgentId) return;
+    api.getAgents()
+      .then((agents) => {
+        if (agents.length > 0) {
+          setFallbackAgentId(agents[0].id);
+          localStorage.setItem(LAST_AGENT_KEY, agents[0].id);
+        }
+      })
+      .catch(() => {});
+  }, [contextAgentId]);
 
   const navItems = [
     {
