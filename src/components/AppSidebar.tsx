@@ -22,7 +22,7 @@ export function AppSidebar() {
     },
     {
       label: "Test Cases",
-      path: agentId ? `/agents/${agentId}/test-cases` : "/agents",
+      path: contextAgentId ? `/agents/${contextAgentId}/test-cases` : "/agents",
       icon: ListChecks,
       active: path.includes("/test-cases"),
     },
