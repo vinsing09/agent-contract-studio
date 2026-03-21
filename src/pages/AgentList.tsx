@@ -20,6 +20,7 @@ export default function AgentList() {
           + New Agent
         </Link>
       </div>
+      <p className="text-sm text-muted-foreground mb-8">Select an agent to view and run its test cases.</p>
 
       {isLoading && (
         <div className="flex items-center justify-center py-20">
