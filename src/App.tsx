@@ -24,6 +24,7 @@ const App = () => (
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />
+            <Route path="/agents/:agentId/test-cases/:id" element={<TestCaseDetail />} />
             <Route path="/test-cases/:id" element={<TestCaseDetail />} />
             <Route path="/eval-runs" element={<EvalRunHistory />} />
             <Route path="/regression" element={<RegressionDashboard />} />

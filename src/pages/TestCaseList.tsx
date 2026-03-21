@@ -105,7 +105,7 @@ export default function TestCaseList() {
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
         >
           {running && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Run Eval
+          {running ? `Running ${testCases.length} cases...` : "Run Eval"}
         </button>
       </div>
 
@@ -179,7 +179,7 @@ export default function TestCaseList() {
                         {tc.locked ? "Locked" : "Lock"}
                       </button>
                       <button
-                        onClick={() => navigate(`/test-cases/${tc.id}`)}
+                        onClick={() => navigate(`/agents/${agentId}/test-cases/${tc.id}`)}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-muted hover:text-foreground transition-colors active:scale-[0.97]"
                       >
                         <Eye className="w-3 h-3" />
