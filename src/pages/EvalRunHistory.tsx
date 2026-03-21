@@ -10,11 +10,29 @@ export default function EvalRunHistory() {
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, EvalResult[]>>({});
   const [loadingResults, setLoadingResults] = useState<string | null>(null);
+  const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number }>>({});
 
   useEffect(() => {
     setLoading(true);
     api.getEvalRuns()
-      .then(setRuns)
+      .then(async (fetchedRuns) => {
+        setRuns(fetchedRuns);
+        // Fetch results for each run to compute pass rates
+        const rates: Record<string, { passed: number; total: number }> = {};
+        await Promise.all(
+          fetchedRuns.map(async (run) => {
+            try {
+              const r = await api.getEvalRunResults(run.id);
+              setResults((prev) => ({ ...prev, [run.id]: r }));
+              const passed = r.filter((res: any) => res.passed === true).length;
+              rates[run.id] = { passed, total: r.length };
+            } catch {
+              rates[run.id] = { passed: 0, total: 0 };
+            }
+          })
+        );
+        setPassRates(rates);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -81,9 +99,12 @@ export default function EvalRunHistory() {
               {runs.map((run) => {
                 const isExpanded = expandedRun === run.id;
                 const runResults = results[run.id];
+                const rate = passRates[run.id];
                 const typeBadge = run.run_type === "full"
                   ? "bg-primary/15 text-primary border-primary/30"
                   : "bg-warning/15 text-warning border-warning/30";
+                const pct = rate && rate.total > 0 ? (rate.passed / rate.total) * 100 : 0;
+                const barColor = rate && rate.total > 0 && rate.passed === rate.total ? "bg-success" : "bg-destructive";
                 return (
                   <>
                     <tr
@@ -106,15 +127,19 @@ export default function EvalRunHistory() {
                       </td>
                       <td className="px-3 py-2.5"><StatusBadge status={run.status} /></td>
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-foreground">{run.pass_count}/{run.total_count}</span>
-                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-success rounded-full transition-all"
-                              style={{ width: run.total_count ? `${(run.pass_count / run.total_count) * 100}%` : "0%" }}
-                            />
+                        {rate ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-foreground">{rate.passed}/{rate.total}</span>
+                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${barColor}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                        )}
                       </td>
                     </tr>
                     {isExpanded && (
