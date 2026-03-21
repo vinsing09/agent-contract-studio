@@ -22,10 +22,42 @@ export default function TestCaseList() {
       .then((agent) => setAgentName(agent.name))
       .catch(() => {});
     api.getTestCases(agentId)
-      .then((cases) => setTestCases(cases))
+      .then((cases) => {
+        setTestCases(cases);
+        // Auto-load eval statuses
+        loadEvalStatuses(agentId, cases);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [agentId]);
+
+  const loadEvalStatuses = async (agId: string, cases: TestCase[]) => {
+    try {
+      const runs = await api.getEvalRuns();
+      const agentRuns = runs.filter((r) => r.agent_id === agId);
+      if (agentRuns.length === 0) return;
+      const latestRun = agentRuns[0];
+      const results = await api.getEvalRunResults(latestRun.id);
+      const statusByCase: Record<string, "PASS" | "FAIL"> = {};
+      for (const r of results) {
+        const tcId = (r as any).test_case_id;
+        if (!tcId) continue;
+        if ((r as any).passed === false) {
+          statusByCase[tcId] = "FAIL";
+        } else if (statusByCase[tcId] !== "FAIL" && (r as any).passed === true) {
+          statusByCase[tcId] = "PASS";
+        }
+      }
+      setTestCases((prev) =>
+        prev.map((tc) => {
+          const s = statusByCase[tc.id];
+          return s ? { ...tc, status: s } : tc;
+        })
+      );
+    } catch {
+      // silently fail - statuses are optional
+    }
+  };
 
   const handleRunEval = async () => {
     if (!agentId) return;
