@@ -25,13 +25,15 @@ export function AppSidebar() {
       <nav className="flex-1 px-2 space-y-0.5">
         {navItems.map((item) => {
           const active =
-            location.pathname === item.path ||
-            location.pathname.startsWith(item.path + "/") ||
-            (item.path === "/agents" && location.pathname.startsWith("/agents"));
+            item.label === "Test Cases"
+              ? location.pathname === "/agents" || location.pathname.match(/^\/agents\/[^/]+\/test-cases/)
+              : item.label === "Agents"
+                ? location.pathname === "/agents/new"
+                : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
           return (
             <Link
-              key={item.path}
-              to={item.path === "/test-cases" ? "/agents" : item.path === "/agents" ? "/agents/new" : item.path}
+              key={item.label}
+              to={item.path}
               className={`flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors relative ${
                 active
                   ? "bg-muted/60 text-foreground font-medium before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[2px] before:bg-primary before:rounded-r"
