@@ -17,11 +17,14 @@ export default function TestCaseList() {
   useEffect(() => {
     if (!agentId) return;
     setLoading(true);
-    Promise.all([api.getTestCases(agentId), api.getAgent(agentId)])
-      .then(([cases, agent]) => {
-        setTestCases(cases);
-        setAgentName(agent.name);
-      })
+
+    // Fetch agent name independently — don't block test cases
+    api.getAgent(agentId)
+      .then((agent) => setAgentName(agent.name))
+      .catch(() => {});
+
+    api.getTestCases(agentId)
+      .then((cases) => setTestCases(cases))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [agentId]);
