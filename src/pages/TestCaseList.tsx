@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCase } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
-import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2, X } from "lucide-react";
+import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2, X, ArrowLeft } from "lucide-react";
 
 export default function TestCaseList() {
   const { agentId } = useParams<{ agentId: string }>();
