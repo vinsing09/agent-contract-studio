@@ -3,6 +3,22 @@ import { api, type EvalRun, type EvalResult } from "@/lib/api";
 import { StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight } from "lucide-react";
 
+function PassedBadge({ passed }: { passed: boolean | null }) {
+  if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
+  if (passed === false) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">FAIL</span>;
+  return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border rounded-sm">SKIP</span>;
+}
+
+function groupByTestCase(results: EvalResult[]): Record<string, EvalResult[]> {
+  const groups: Record<string, EvalResult[]> = {};
+  for (const r of results) {
+    const key = r.test_case_id ?? "unknown";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  }
+  return groups;
+}
+
 export default function EvalRunHistory() {
   const [runs, setRuns] = useState<EvalRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,14 +33,13 @@ export default function EvalRunHistory() {
     api.getEvalRuns()
       .then(async (fetchedRuns) => {
         setRuns(fetchedRuns);
-        // Fetch results for each run to compute pass rates
         const rates: Record<string, { passed: number; total: number }> = {};
         await Promise.all(
           fetchedRuns.map(async (run) => {
             try {
               const r = await api.getEvalRunResults(run.id);
               setResults((prev) => ({ ...prev, [run.id]: r }));
-              const passed = r.filter((res: any) => res.passed === true).length;
+              const passed = r.filter((res) => res.passed === true).length;
               rates[run.id] = { passed, total: r.length };
             } catch {
               rates[run.id] = { passed: 0, total: 0 };
@@ -152,35 +167,27 @@ export default function EvalRunHistory() {
                             runResults.length === 0 ? (
                               <p className="text-sm text-muted-foreground">No results for this run.</p>
                             ) : (
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="border-b border-border">
-                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Test Case ID</th>
-                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Scenario</th>
-                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Result</th>
-                                    <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">Reason</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {runResults.map((r, i) => {
-                                    const failures = r.failed_assertions ?? [];
-                                    return (
-                                      <tr key={i} className="border-b border-border last:border-b-0">
-                                        <td className="px-2 py-2 font-mono text-xs text-foreground">{r.test_case_id?.slice(0, 8) ?? "—"}…</td>
-                                        <td className="px-2 py-2 text-foreground max-w-[200px] truncate">{r.scenario}</td>
-                                        <td className="px-2 py-2"><StatusBadge status={r.status} /></td>
-                                        <td className="px-2 py-2 text-xs text-destructive max-w-[300px]">
-                                          {failures.length > 0
-                                            ? failures.map((fa, j) => (
-                                                <div key={j} className="font-mono">{fa.type}: {fa.reason}</div>
-                                              ))
-                                            : <span className="text-muted-foreground">—</span>}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                              <div className="space-y-3">
+                                {Object.entries(groupByTestCase(runResults)).map(([tcId, assertions]) => (
+                                  <div key={tcId}>
+                                    <p className="text-[11px] font-mono text-muted-foreground mb-1.5 border-b border-border pb-1">
+                                      Test Case {tcId.slice(0, 12)}…
+                                    </p>
+                                    <div className="space-y-1 ml-2">
+                                      {assertions.map((r, i) => (
+                                        <div key={r.id ?? i} className="flex items-center gap-2 text-sm">
+                                          <PassedBadge passed={r.passed} />
+                                          <span className="font-mono text-xs text-foreground">{r.assertion_id}</span>
+                                          <span className="text-xs text-muted-foreground truncate max-w-[400px]">{r.reason || "—"}</span>
+                                          {r.result_type === "semantic" && (
+                                            <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm ml-auto shrink-0">AI judge</span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             )
                           ) : (
                             <p className="text-sm text-muted-foreground">No results available.</p>

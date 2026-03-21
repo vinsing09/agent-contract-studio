@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api, type TestCase } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
-import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks } from "lucide-react";
+import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2 } from "lucide-react";
 
 export default function TestCaseList() {
   const { agentId } = useParams<{ agentId: string }>();
@@ -13,16 +13,14 @@ export default function TestCaseList() {
   const [running, setRunning] = useState(false);
   const [lockingIds, setLockingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
+  const [successBanner, setSuccessBanner] = useState<{ passed: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
     setLoading(true);
-
-    // Fetch agent name independently — don't block test cases
     api.getAgent(agentId)
       .then((agent) => setAgentName(agent.name))
       .catch(() => {});
-
     api.getTestCases(agentId)
       .then((cases) => setTestCases(cases))
       .catch((err) => setError(err.message))
@@ -33,11 +31,11 @@ export default function TestCaseList() {
     if (!agentId) return;
     setRunning(true);
     setError("");
+    setSuccessBanner(null);
     try {
       const response = await api.runEval(agentId) as any;
       const runId = response?.eval_run?.id || response?.id;
       const results = await api.getEvalRunResults(runId);
-      // Group assertion-level results by test_case_id
       const statusByCase: Record<string, "PASS" | "FAIL"> = {};
       for (const r of results) {
         const tcId = (r as any).test_case_id;
@@ -51,6 +49,10 @@ export default function TestCaseList() {
           return s ? { ...tc, status: s } : tc;
         })
       );
+      const passedCount = Object.values(statusByCase).filter((s) => s === "PASS").length;
+      const totalCount = Object.keys(statusByCase).length;
+      setSuccessBanner({ passed: passedCount, total: totalCount });
+      setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -90,6 +92,16 @@ export default function TestCaseList() {
 
   return (
     <div className="px-6 py-6 animate-fade-in">
+      {successBanner && (
+        <div
+          onClick={() => setSuccessBanner(null)}
+          className="mb-4 px-3 py-2 text-sm bg-success/10 border border-success/30 rounded text-success flex items-center gap-2 cursor-pointer transition-opacity"
+        >
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          Eval complete — {successBanner.passed}/{successBanner.total} passed. Click View on any row to inspect the trace.
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />

@@ -11,6 +11,12 @@ const assertionTypeColors: Record<string, string> = {
   output_contains: "bg-purple-500/15 text-purple-400 border-purple-500/30",
 };
 
+function PassedBadge({ passed }: { passed: boolean | null }) {
+  if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
+  if (passed === false) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">FAIL</span>;
+  return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border rounded-sm">SKIP</span>;
+}
+
 export default function TestCaseDetailPage() {
   const { id, agentId } = useParams<{ id: string; agentId: string }>();
   const navigate = useNavigate();
@@ -20,7 +26,7 @@ export default function TestCaseDetailPage() {
   const [lockLoading, setLockLoading] = useState(false);
   const [lockError, setLockError] = useState("");
   const [expandedCalls, setExpandedCalls] = useState<Set<number>>(new Set());
-  const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
+  const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [evalLoading, setEvalLoading] = useState(false);
 
   useEffect(() => {
@@ -39,17 +45,17 @@ export default function TestCaseDetailPage() {
     api.getEvalRuns()
       .then((runs) => {
         const agentRuns = runs
-          .filter((r) => r.agent_id === agentId && (r.status === "PASS" || r.status === "FAIL"))
+          .filter((r) => r.agent_id === agentId)
           .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
         if (agentRuns.length === 0) return null;
         return api.getEvalRunResults(agentRuns[0].id);
       })
       .then((results) => {
         if (!results) return;
-        const match = results.find((r) => r.test_case_id === id);
-        if (match) setEvalResult(match);
+        const matched = results.filter((r) => r.test_case_id === id);
+        setEvalResults(matched);
       })
-      .catch(() => {}) // silently ignore - eval results are optional
+      .catch(() => {})
       .finally(() => setEvalLoading(false));
   }, [agentId, id]);
 
@@ -99,10 +105,9 @@ export default function TestCaseDetailPage() {
   }
 
   const toolStubs = Array.isArray(tc.tool_stubs) ? tc.tool_stubs : [];
-  const assertions = Array.isArray(tc.assertion_results) ? tc.assertion_results : Array.isArray(tc.assertions) ? tc.assertions : [];
-  const passCount = assertions.filter((a) => a.result === "PASS").length;
-  const hasResults = assertions.some((a) => a.result);
-  const allPass = hasResults && passCount === assertions.length;
+  const assertions = Array.isArray(tc.assertions) ? tc.assertions : [];
+  const passedCount = evalResults.filter((r) => r.passed === true).length;
+  const hasEvalResults = evalResults.length > 0;
 
   return (
     <div className="px-6 py-6 animate-fade-in">
@@ -206,11 +211,6 @@ export default function TestCaseDetailPage() {
                     {a.expected != null && (
                       <span className="text-xs text-muted-foreground font-mono">= {JSON.stringify(a.expected)}</span>
                     )}
-                    {a.result && (
-                      <span className="ml-auto">
-                        <StatusBadge status={a.result} />
-                      </span>
-                    )}
                   </div>
                 );
               })}
@@ -223,106 +223,87 @@ export default function TestCaseDetailPage() {
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Execution Trace</h2>
 
-            {!tc.trace && !evalResult ? (
-              evalLoading ? (
-                <div className="flex items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
-                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
-                  <Inbox className="w-8 h-8 mb-2 opacity-40" />
-                  <p className="text-sm">Run eval to see trace</p>
-                </div>
-              )
-            ) : (
-              <div className="space-y-2">
-                {tc.trace && (
-                  <>
-                    <div className="relative pl-4 border-l border-border space-y-3">
-                      {tc.trace.calls.map((call, i) => (
-                        <div key={i} className="border border-border rounded bg-card">
-                          <button
-                            onClick={() => toggleCall(i)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/30 transition-colors"
-                          >
-                            {expandedCalls.has(i) ? (
-                              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            )}
-                            <span className="font-mono font-medium text-foreground">{call.tool_name}</span>
-                            <span className="ml-auto flex items-center gap-2">
-                              <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm border border-border">
-                                {call.latency_ms}ms
-                              </span>
-                              {call.simulate_failure && (
-                                <span className="text-[10px] font-mono text-destructive bg-destructive/15 px-1.5 py-0.5 rounded-sm border border-destructive/30">
-                                  FAILURE
-                                </span>
-                              )}
+            {tc.trace && (
+              <div className="space-y-2 mb-4">
+                <div className="relative pl-4 border-l border-border space-y-3">
+                  {tc.trace.calls.map((call, i) => (
+                    <div key={i} className="border border-border rounded bg-card">
+                      <button
+                        onClick={() => toggleCall(i)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/30 transition-colors"
+                      >
+                        {expandedCalls.has(i) ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-mono font-medium text-foreground">{call.tool_name}</span>
+                        <span className="ml-auto flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm border border-border">
+                            {call.latency_ms}ms
+                          </span>
+                          {call.simulate_failure && (
+                            <span className="text-[10px] font-mono text-destructive bg-destructive/15 px-1.5 py-0.5 rounded-sm border border-destructive/30">
+                              FAILURE
                             </span>
-                          </button>
-                          {expandedCalls.has(i) && (
-                            <div className="border-t border-border space-y-0">
-                              <CodeBlock label="Params">{JSON.stringify(call.params, null, 2)}</CodeBlock>
-                              <CodeBlock label="Response">{JSON.stringify(call.response, null, 2)}</CodeBlock>
-                            </div>
                           )}
+                        </span>
+                      </button>
+                      {expandedCalls.has(i) && (
+                        <div className="border-t border-border space-y-0">
+                          <CodeBlock label="Params">{JSON.stringify(call.params, null, 2)}</CodeBlock>
+                          <CodeBlock label="Response">{JSON.stringify(call.response, null, 2)}</CodeBlock>
                         </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-4">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Final Output</h3>
-                      <div className="p-3 bg-card border border-border rounded text-sm text-foreground">
-                        {tc.trace.final_output}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {evalResult && (
-                  <div className="space-y-3 mt-4">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Assertion Results</h3>
-                    <div className="space-y-1">
-                      {(evalResult.failed_assertions ?? []).length === 0 && evalResult.status === "PASS" ? (
-                        <div className="px-3 py-2 border border-success/30 rounded bg-success/10 text-sm text-success flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4" />
-                          All assertions passed
-                        </div>
-                      ) : (
-                        (evalResult.failed_assertions ?? []).map((fa, i) => (
-                          <div key={i} className="flex items-start gap-2 px-3 py-2 border border-border rounded bg-card text-sm">
-                            <StatusBadge status="FAIL" />
-                            <div className="min-w-0">
-                              <span className="font-mono text-xs text-muted-foreground">{fa.type}</span>
-                              {fa.reason && (
-                                <p className="text-xs text-destructive mt-0.5">{fa.reason}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))
                       )}
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
 
-                {(hasResults || evalResult) && (
-                  <div className={`px-4 py-3 rounded border text-sm font-medium flex items-center gap-2 mt-4 ${
-                    (evalResult?.status === "PASS" || (!evalResult && allPass))
-                      ? "bg-success/10 border-success/30 text-success"
-                      : "bg-destructive/10 border-destructive/30 text-destructive"
-                  }`}>
-                    {(evalResult?.status === "PASS" || (!evalResult && allPass))
-                      ? <CheckCircle2 className="w-4 h-4" />
-                      : <XCircle className="w-4 h-4" />}
-                    {evalResult
-                      ? evalResult.status === "PASS" ? "All assertions passed" : `${(evalResult.failed_assertions ?? []).length} assertion(s) failed`
-                      : `${passCount} of ${assertions.length} assertions passed`}
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Final Output</h3>
+                  <div className="p-3 bg-card border border-border rounded text-sm text-foreground">
+                    {tc.trace.final_output}
                   </div>
-                )}
+                </div>
               </div>
             )}
+
+            {evalLoading ? (
+              <div className="flex items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : hasEvalResults ? (
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assertion Results</h3>
+                <div className="space-y-1">
+                  {evalResults.map((r, i) => (
+                    <div key={r.id ?? i} className="flex items-start gap-2 px-3 py-2 border border-border rounded bg-card text-sm">
+                      <PassedBadge passed={r.passed} />
+                      <span className="font-mono text-xs text-foreground shrink-0">{r.assertion_id}</span>
+                      <span className="text-xs text-muted-foreground">{r.reason || "—"}</span>
+                      {r.result_type === "semantic" && (
+                        <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm ml-auto shrink-0">AI judge</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className={`px-4 py-3 rounded border text-sm font-medium flex items-center gap-2 ${
+                  passedCount === evalResults.length
+                    ? "bg-success/10 border-success/30 text-success"
+                    : "bg-destructive/10 border-destructive/30 text-destructive"
+                }`}>
+                  {passedCount === evalResults.length
+                    ? <CheckCircle2 className="w-4 h-4" />
+                    : <XCircle className="w-4 h-4" />}
+                  {passedCount} of {evalResults.length} assertions passed
+                </div>
+              </div>
+            ) : !tc.trace ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
+                <Inbox className="w-8 h-8 mb-2 opacity-40" />
+                <p className="text-sm">Run eval to see trace</p>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>
