@@ -243,7 +243,7 @@ export default function AgentUpload() {
                   Behavioral Obligations
                 </h2>
                 <div className="space-y-2">
-                  {contract.behavioral_obligations.map((obligation, i) => (
+                 {(contract.behavioral_obligations ?? []).map((obligation, i) => (
                     <div
                       key={i}
                       className="flex gap-3 p-3 bg-card border border-border rounded border-l-2 border-l-primary"
