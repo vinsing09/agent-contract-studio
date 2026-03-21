@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api, type TestCaseDetail } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
-import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock } from "lucide-react";
+import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock, ArrowLeft } from "lucide-react";
 
 const assertionTypeColors: Record<string, string> = {
   tool_called: "bg-primary/15 text-primary border-primary/30",
