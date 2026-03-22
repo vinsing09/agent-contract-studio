@@ -197,57 +197,73 @@ export default function RegressionDashboard() {
             <p className="text-sm">No locked cases in the regression suite.</p>
           </div>
         ) : (
-          <div className="border border-border rounded overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-10"></th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Scenario</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Tags</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-24">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cases.map((c) => (
-                  <tr key={c.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
-                    <td className="px-3 py-2.5 text-center">
-                      <Lock className="w-3.5 h-3.5 text-primary mx-auto" />
-                    </td>
-                    <td className="px-3 py-2.5 text-foreground">{c.scenario}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground text-xs">{c.agent_name}</td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex flex-wrap gap-1">
-                        {c.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {c.status === "NEVER_RUN" ? (
-                        <span className="text-[11px] font-mono text-muted-foreground">NEVER RUN</span>
-                      ) : c.status === "BLOCKED" ? (
-                        <span className="inline-flex px-1.5 py-0.5 text-[11px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">BLOCKED</span>
-                      ) : c.status === "PASS" ? (
-                        <StatusBadge status="PASS" />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          (() => {
+            const grouped: Record<string, LockedCase[]> = {};
+            for (const c of cases) {
+              if (!grouped[c.agent_name]) grouped[c.agent_name] = [];
+              grouped[c.agent_name].push(c);
+            }
+            return Object.entries(grouped).map(([agentName, agentCases]) => (
+              <div key={agentName} className="mb-4 last:mb-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-sm font-medium text-foreground">{agentName}</h3>
+                  <span className="text-xs text-muted-foreground">— {agentCases.length} locked {agentCases.length === 1 ? "case" : "cases"}</span>
+                </div>
+                <div className="border border-border rounded overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-10"></th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Scenario</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Tags</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-24">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {agentCases.map((c) => (
+                        <tr key={c.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
+                          <td className="px-3 py-2.5 text-center">
+                            <Lock className="w-3.5 h-3.5 text-primary mx-auto" />
+                          </td>
+                          <td className="px-3 py-2.5 text-foreground">{c.scenario}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex flex-wrap gap-1">
+                              {c.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {c.status === "NEVER_RUN" ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : c.status === "BLOCKED" ? (
+                              <span className="inline-flex px-1.5 py-0.5 text-[11px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">BLOCKED</span>
+                            ) : c.status === "PASS" ? (
+                              <StatusBadge status="PASS" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ));
+          })()
         )}
       </section>
 
-      <button
-        onClick={handleRunRegression}
-        disabled={running || cases.length === 0}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.98]"
-      >
-        {running && <Loader2 className="w-4 h-4 animate-spin" />}
-        Run Regression Suite
-      </button>
+      <div className="text-center">
+        <button
+          onClick={handleRunRegression}
+          disabled={running || cases.length === 0}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.98]"
+        >
+          {running && <Loader2 className="w-4 h-4 animate-spin" />}
+          Run Regression Suite
+        </button>
+        <p className="text-xs text-muted-foreground mt-2">Runs all locked cases across all agents.</p>
+      </div>
     </div>
   );
 }
