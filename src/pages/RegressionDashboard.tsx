@@ -253,14 +253,17 @@ export default function RegressionDashboard() {
         )}
       </section>
 
-      <button
-        onClick={handleRunRegression}
-        disabled={running || cases.length === 0}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.98]"
-      >
-        {running && <Loader2 className="w-4 h-4 animate-spin" />}
-        Run Regression Suite
-      </button>
+      <div className="text-center">
+        <button
+          onClick={handleRunRegression}
+          disabled={running || cases.length === 0}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.98]"
+        >
+          {running && <Loader2 className="w-4 h-4 animate-spin" />}
+          Run Regression Suite
+        </button>
+        <p className="text-xs text-muted-foreground mt-2">Runs all locked cases across all agents.</p>
+      </div>
     </div>
   );
 }
