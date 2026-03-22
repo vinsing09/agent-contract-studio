@@ -78,6 +78,10 @@ export interface EvalResult {
   passed: boolean | null;
   reason: string;
   result_type: string;
+  scenario?: string;
+  assertion_type?: string;
+  tool_name?: string;
+  param?: string;
 }
 
 export interface RegressionCase {
