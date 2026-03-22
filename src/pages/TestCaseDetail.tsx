@@ -39,6 +39,13 @@ export default function TestCaseDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!agentId) return;
+    api.getAgent(agentId)
+      .then((agent) => setAgentName(agent.name))
+      .catch(() => {});
+  }, [agentId]);
+
   // Fetch latest eval run results for this test case
   useEffect(() => {
     if (!id) return;
