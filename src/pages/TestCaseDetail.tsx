@@ -28,6 +28,7 @@ export default function TestCaseDetailPage() {
   const [expandedCalls, setExpandedCalls] = useState<Set<number>>(new Set());
   const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [evalLoading, setEvalLoading] = useState(false);
+  const [agentName, setAgentName] = useState("");
 
   useEffect(() => {
     if (!id) return;
