@@ -144,6 +144,15 @@ export const api = {
   getEvalRunResults: (runId: string) =>
     request<EvalResult[]>(`/eval-runs/${runId}/results`),
 
+  deleteEvalRun: (runId: string) =>
+    request<void>(`/eval-runs/${runId}`, { method: "DELETE" }),
+
+  deleteTestCase: (id: string) =>
+    request<void>(`/test-cases/${id}`, { method: "DELETE" }),
+
+  deleteAgent: (id: string) =>
+    request<void>(`/agents/${id}`, { method: "DELETE" }),
+
   getLatestRegressionRun: (agentId: string) =>
     request<any>(`/agents/${agentId}/regression-run/latest`),
 

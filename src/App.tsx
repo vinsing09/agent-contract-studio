@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import AgentUpload from "@/pages/AgentUpload";
 import AgentList from "@/pages/AgentList";
+import AgentDetail from "@/pages/AgentDetail";
 import TestCaseList from "@/pages/TestCaseList";
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/" element={<Navigate to="/agents" replace />} />
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
+            <Route path="/agents/:id" element={<AgentDetail />} />
             <Route path="/agents/:agentId/contract" element={<AgentContract />} />
             <Route path="/test-cases" element={<TestCaseAgentList />} />
             <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />

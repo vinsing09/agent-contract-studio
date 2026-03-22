@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCase } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
-import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2, X, ArrowLeft } from "lucide-react";
+import { Loader2, Lock, Unlock, Eye, AlertCircle, ListChecks, CheckCircle2, X, ArrowLeft, Trash2 } from "lucide-react";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 
 export default function TestCaseList() {
   const { agentId } = useParams<{ agentId: string }>();
@@ -14,6 +15,8 @@ export default function TestCaseList() {
   const [lockingIds, setLockingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [successBanner, setSuccessBanner] = useState<{ passed: number; total: number } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<TestCase | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
@@ -24,7 +27,6 @@ export default function TestCaseList() {
     api.getTestCases(agentId)
       .then((cases) => {
         setTestCases(cases);
-        // Auto-load eval statuses
         loadEvalStatuses(agentId, cases);
       })
       .catch((err) => setError(err.message))
@@ -54,9 +56,7 @@ export default function TestCaseList() {
           return s ? { ...tc, status: s } : tc;
         })
       );
-    } catch {
-      // silently fail - statuses are optional
-    }
+    } catch {}
   };
 
   const handleRunEval = async () => {
@@ -116,6 +116,20 @@ export default function TestCaseList() {
     }
   };
 
+  const handleDeleteTestCase = async () => {
+    if (!deleteModal) return;
+    setDeletingId(deleteModal.id);
+    try {
+      await api.deleteTestCase(deleteModal.id);
+      setTestCases((prev) => prev.filter((tc) => tc.id !== deleteModal.id));
+      setDeleteModal(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -126,17 +140,25 @@ export default function TestCaseList() {
 
   return (
     <div className="px-6 py-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to="/test-cases">Test Cases</Link></BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{agentName || "Agent"}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {successBanner && (
         <div className="mb-4 px-3 py-2 text-sm bg-success/10 border border-success/30 rounded text-success flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span className="flex-1">
             Eval complete — {successBanner.passed}/{successBanner.total} passed. Go to{" "}
-            <span
-              onClick={() => navigate("/eval-runs")}
-              className="underline cursor-pointer hover:text-success/80 font-medium"
-            >
-              Eval Runs
-            </span>{" "}
+            <span onClick={() => navigate("/eval-runs")} className="underline cursor-pointer hover:text-success/80 font-medium">Eval Runs</span>{" "}
             to see full results, or click View on any row to inspect individual traces.
           </span>
           <button onClick={() => setSuccessBanner(null)} className="p-0.5 hover:bg-success/20 rounded transition-colors">
@@ -194,7 +216,7 @@ export default function TestCaseList() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assertions</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-16">Locked</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-20">Status</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-36">Actions</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-44">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -253,12 +275,57 @@ export default function TestCaseList() {
                         <Eye className="w-3 h-3" />
                         View
                       </button>
+                      <button
+                        onClick={() => setDeleteModal(tc)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-destructive/70 border border-destructive/20 rounded hover:bg-destructive/10 hover:text-destructive transition-colors active:scale-[0.97]"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Test Case Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              <h3 className="text-base font-semibold text-foreground">Delete Test Case</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              {deleteModal.locked
+                ? "This is a regression case. Deleting it will remove it from your regression suite."
+                : "Are you sure you want to delete this test case? This cannot be undone."}
+            </p>
+            {deleteModal.locked && (
+              <div className="mb-3 px-2 py-1.5 text-xs bg-warning/10 border border-warning/30 rounded text-warning flex items-center gap-1.5">
+                <Lock className="w-3 h-3" />
+                This test case is locked as a regression case
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTestCase}
+                disabled={deletingId === deleteModal.id}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {deletingId === deleteModal.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

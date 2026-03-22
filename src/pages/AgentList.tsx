@@ -54,7 +54,11 @@ export default function AgentList() {
             <tbody>
               {agents.map((agent) => (
                 <tr key={agent.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3 font-medium text-foreground">{agent.name}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    <Link to={`/agents/${agent.id}`} className="hover:text-primary transition-colors">
+                      {agent.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{agent.id.slice(0, 12)}…</td>
                   <td className="px-4 py-3 text-right">
                     <Link
