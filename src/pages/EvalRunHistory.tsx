@@ -17,6 +17,19 @@ function PassedBadge({ passed }: { passed: boolean | null }) {
   );
 }
 
+function formatAssertionLabel(r: EvalResult): string {
+  if (r.assertion_type && r.tool_name && r.param) {
+    return `${r.assertion_type}: ${r.tool_name} → ${r.param}`;
+  }
+  if (r.assertion_type && r.tool_name) {
+    return `${r.assertion_type}: ${r.tool_name}`;
+  }
+  if (r.assertion_type) {
+    return r.assertion_type;
+  }
+  return r.assertion_id;
+}
+
 function groupByTestCase(results: EvalResult[]): Record<string, EvalResult[]> {
   const groups: Record<string, EvalResult[]> = {};
   for (const r of results) {
