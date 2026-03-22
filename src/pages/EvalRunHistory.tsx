@@ -230,25 +230,41 @@ export default function EvalRunHistory() {
                               <p className="text-sm text-muted-foreground">No results for this run.</p>
                             ) : (
                               <div className="space-y-3">
-                                {Object.entries(groupByTestCase(runResults)).map(([tcId, assertions]) => (
+                                {/* Legend */}
+                                <div className="flex items-center gap-3 pb-2 border-b border-border">
+                                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Legend:</span>
+                                  <span className="inline-flex items-center gap-1 text-[10px]"><span className="w-1.5 h-1.5 rounded-full bg-success" />PASS</span>
+                                  <span className="inline-flex items-center gap-1 text-[10px]"><span className="w-1.5 h-1.5 rounded-full bg-destructive" />FAIL</span>
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />SKIP — parsing error</span>
+                                </div>
+                                {Object.entries(groupByTestCase(runResults)).map(([tcId, assertions]) => {
+                                  const scenario = assertions[0]?.scenario;
+                                  return (
                                   <div key={tcId}>
-                                    <p className="text-[11px] font-mono text-muted-foreground mb-1.5 border-b border-border pb-1">
-                                      Test Case {tcId.slice(0, 12)}…
-                                    </p>
+                                    <div className="mb-1.5 border-b border-border pb-1">
+                                      <p className="text-xs font-medium text-foreground">
+                                        {scenario || `Test Case ${tcId.slice(0, 12)}…`}
+                                      </p>
+                                      <p className="text-[10px] font-mono text-muted-foreground">{tcId}</p>
+                                    </div>
                                     <div className="space-y-1 ml-2">
-                                      {assertions.map((r, i) => (
+                                      {assertions.map((r, i) => {
+                                        const label = formatAssertionLabel(r);
+                                        return (
                                         <div key={r.id ?? i} className="flex items-center gap-2 text-sm">
                                           <PassedBadge passed={r.passed} />
-                                          <span className="font-mono text-xs text-foreground">{r.assertion_id}</span>
+                                          <span className="font-mono text-xs text-foreground">{label}</span>
                                           <span className="text-xs text-muted-foreground truncate max-w-[400px]">{r.reason || "—"}</span>
                                           {r.result_type === "semantic" && (
                                             <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm ml-auto shrink-0">AI judge</span>
                                           )}
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )
                           ) : (
