@@ -7,7 +7,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 function PassedBadge({ passed }: { passed: boolean | null }) {
   if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
   if (passed === false) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">FAIL</span>;
-  return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border rounded-sm">SKIP</span>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border rounded-sm cursor-default">SKIP</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">Judge skipped due to response parsing error</TooltipContent>
+    </Tooltip>
+  );
 }
 
 function groupByTestCase(results: EvalResult[]): Record<string, EvalResult[]> {
