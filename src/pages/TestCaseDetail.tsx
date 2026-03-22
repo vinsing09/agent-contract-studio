@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock, ArrowLeft } from "lucide-react";
-
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 const assertionTypeColors: Record<string, string> = {
   tool_called: "bg-primary/15 text-primary border-primary/30",
   tool_not_called: "bg-warning/15 text-warning border-warning/30",
@@ -28,6 +28,7 @@ export default function TestCaseDetailPage() {
   const [expandedCalls, setExpandedCalls] = useState<Set<number>>(new Set());
   const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [evalLoading, setEvalLoading] = useState(false);
+  const [agentName, setAgentName] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -37,6 +38,13 @@ export default function TestCaseDetailPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    api.getAgent(agentId)
+      .then((agent) => setAgentName(agent.name))
+      .catch(() => {});
+  }, [agentId]);
 
   // Fetch latest eval run results for this test case
   useEffect(() => {
@@ -119,13 +127,26 @@ export default function TestCaseDetailPage() {
 
   return (
     <div className="px-6 py-6 animate-fade-in">
-      <button
-        onClick={() => navigate(agentId ? `/agents/${agentId}/test-cases` : -1 as any)}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4 active:scale-[0.97]"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Back to Test Cases
-      </button>
+      {/* Breadcrumb */}
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to="/test-cases">Test Cases</Link></BreadcrumbLink>
+          </BreadcrumbItem>
+          {agentId && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild><Link to={`/agents/${agentId}/test-cases`}>{agentName || "Agent"}</Link></BreadcrumbLink>
+              </BreadcrumbItem>
+            </>
+          )}
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{tc?.scenario ? (tc.scenario.length > 40 ? tc.scenario.slice(0, 40) + "…" : tc.scenario) : "Detail"}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="flex items-start justify-between mb-1 gap-4">
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
