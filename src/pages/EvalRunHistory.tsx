@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api, type EvalRun, type EvalResult, type Agent } from "@/lib/api";
 import { StatusBadge } from "@/components/ui-shared";
-import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function PassedBadge({ passed }: { passed: boolean | null }) {
@@ -29,11 +29,11 @@ export default function EvalRunHistory() {
   const [loadingResults, setLoadingResults] = useState<string | null>(null);
   const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number }>>({});
   const [agentNames, setAgentNames] = useState<Record<string, string>>({});
+  const [deleteModal, setDeleteModal] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
-
-    // Fetch agents for name lookup
     api.getAgents()
       .then((agents) => {
         const map: Record<string, string> = {};
@@ -83,6 +83,21 @@ export default function EvalRunHistory() {
     }
   };
 
+  const handleDeleteRun = async () => {
+    if (!deleteModal) return;
+    setDeletingId(deleteModal);
+    try {
+      await api.deleteEvalRun(deleteModal);
+      setRuns((prev) => prev.filter((r) => r.id !== deleteModal));
+      setDeleteModal(null);
+      if (expandedRun === deleteModal) setExpandedRun(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -91,14 +106,11 @@ export default function EvalRunHistory() {
     );
   }
 
-  // Sort runs by started_at ascending so oldest = Run #1
   const sortedRuns = [...runs].sort(
     (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
   );
-  // Build run number map
   const runNumberMap: Record<string, number> = {};
   sortedRuns.forEach((run, i) => { runNumberMap[run.id] = i + 1; });
-  // Display newest first
   const displayRuns = [...sortedRuns].reverse();
 
   return (
@@ -130,6 +142,7 @@ export default function EvalRunHistory() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Started</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass Rate</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-12"></th>
               </tr>
             </thead>
             <tbody>
@@ -189,10 +202,18 @@ export default function EvalRunHistory() {
                           <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                         )}
                       </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteModal(run.id); }}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                     {isExpanded && (
                       <tr className="border-b border-border">
-                        <td colSpan={7} className="px-6 py-4 bg-muted/10">
+                        <td colSpan={8} className="px-6 py-4 bg-muted/10">
                           {loadingResults === run.id ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading results…
@@ -234,6 +255,37 @@ export default function EvalRunHistory() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Eval Run Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              <h3 className="text-base font-semibold text-foreground">Delete Eval Run</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              Delete this eval run and all its results? This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteRun}
+                disabled={deletingId === deleteModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {deletingId === deleteModal && <Loader2 className="w-3 h-3 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
