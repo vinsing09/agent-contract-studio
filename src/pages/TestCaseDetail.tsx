@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock, ArrowLeft } from "lucide-react";
-
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 const assertionTypeColors: Record<string, string> = {
   tool_called: "bg-primary/15 text-primary border-primary/30",
   tool_not_called: "bg-warning/15 text-warning border-warning/30",
