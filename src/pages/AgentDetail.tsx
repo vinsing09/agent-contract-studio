@@ -235,6 +235,68 @@ export default function AgentDetail() {
     setShowNewVersionDrawer(true);
   };
 
+  const handleSuggestImprovements = async () => {
+    if (!id || !activeVersion || !latestRun) return;
+    setLoadingSuggestions(true);
+    setShowImprovements(true);
+    setImprovementError("");
+    setSuggestions([]);
+    try {
+      const result = await api.getSuggestions(id, activeVersion.id, latestRun.id);
+      setSuggestions(result.suggestions);
+      const allIds = new Set(result.suggestions.map((s: any) => s.id));
+      setAcceptedSuggestionIds(allIds);
+      setRejectedSuggestionIds(new Set());
+      setReviewedSuggestionIds(new Set());
+    } catch (err: any) {
+      setImprovementError(err.message || "Failed to get suggestions");
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handleAcceptSuggestion = (sId: string) => {
+    setRejectedSuggestionIds(prev => { const n = new Set(prev); n.delete(sId); return n; });
+    setAcceptedSuggestionIds(prev => new Set(prev).add(sId));
+    setReviewedSuggestionIds(prev => new Set(prev).add(sId));
+  };
+
+  const handleRejectSuggestion = (sId: string) => {
+    setAcceptedSuggestionIds(prev => { const n = new Set(prev); n.delete(sId); return n; });
+    setRejectedSuggestionIds(prev => new Set(prev).add(sId));
+    setReviewedSuggestionIds(prev => new Set(prev).add(sId));
+  };
+
+  const handleApplyFixes = async () => {
+    if (!id || !activeVersion || !latestRun) return;
+    setApplyingFixes(true);
+    setImprovementError("");
+    try {
+      const accepted = suggestions.filter(s => !rejectedSuggestionIds.has(s.id)).map(s => s.id);
+      await api.applySuggestions(id, activeVersion.id, {
+        accepted_fix_ids: accepted,
+        eval_run_id: latestRun.id,
+        label: "Improved from eval results",
+      });
+      const vList = await api.getAgentVersions(id);
+      const sorted = Array.isArray(vList) ? vList : [];
+      setVersions(sorted);
+      const latest = sorted.reduce((a, b) => a.version_number > b.version_number ? a : b);
+      setActiveVersion(latest);
+      const [c, cases] = await Promise.all([
+        api.getContractV2(id, latest.id).catch(() => null),
+        api.getTestCasesV2(id, latest.id).catch(() => []),
+      ]);
+      setContract(c);
+      setTestCases(Array.isArray(cases) ? cases : []);
+      setShowImprovements(false);
+    } catch (err: any) {
+      setImprovementError(err.message || "Failed to apply fixes");
+    } finally {
+      setApplyingFixes(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
