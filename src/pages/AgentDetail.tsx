@@ -179,13 +179,30 @@ export default function AgentDetail() {
     if (!id || version.id === activeVersion?.id) return;
     setSwitchingVersion(true);
     setActiveVersion(version);
+    setLatestRun(null);
+    setLatestResults([]);
+    setSuggestions([]);
+    setShowImprovements(false);
+    setReviewedSuggestionIds(new Set());
+    setRejectedSuggestionIds(new Set());
     try {
-      const [c, cases] = await Promise.all([
+      const [c, cases, runs] = await Promise.all([
         api.getContractV2(id, version.id).catch(() => null),
         api.getTestCasesV2(id, version.id).catch(() => []),
+        api.getEvalRuns().catch(() => []),
       ]);
       setContract(c);
       setTestCases(Array.isArray(cases) ? cases : []);
+      const versionRuns = (runs as EvalRun[]).filter(
+        (r) => r.agent_id === id && (r as any).agent_version_id === version.id
+      );
+      if (versionRuns.length > 0) {
+        const latestR = versionRuns[0];
+        setLatestRun(latestR);
+        api.getEvalRunResults(latestR.id)
+          .then((res) => setLatestResults(res))
+          .catch(() => {});
+      }
     } catch {} finally {
       setSwitchingVersion(false);
     }
