@@ -376,7 +376,7 @@ export default function TestCaseAgentList() {
   };
 
   const smartLockFromEval = async () => {
-    if (selectedAgentId === "all" || !selectedAgentId) return;
+    if (!selectedAgentId) return;
     setBulkLocking(true);
     setError("");
     setSmartLockSummary(null);
