@@ -78,7 +78,7 @@ export default function AgentUpload() {
 
   const [draft, setDraft] = useState<AgentDraft | null>(null);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
-  const [acceptedFixIds, setAcceptedFixIds] = useState<Set<string>>(new Set());
+  const [rejectedFixIds, setRejectedFixIds] = useState<Set<string>>(new Set());
   const [expandedFixes, setExpandedFixes] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(false);
