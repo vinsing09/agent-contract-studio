@@ -247,7 +247,7 @@ export default function AgentDetail() {
       const allIds = new Set(result.suggestions.map((s: any) => s.id));
       setAcceptedSuggestionIds(allIds);
       setRejectedSuggestionIds(new Set());
-      setReviewedSuggestionIds(new Set());
+      setReviewedSuggestionIds(new Set(allIds));
     } catch (err: any) {
       setImprovementError(err.message || "Failed to get suggestions");
     } finally {
@@ -755,7 +755,7 @@ export default function AgentDetail() {
                           <p className="text-sm font-semibold text-foreground">{s.failure_pattern}</p>
                           <p className="text-xs text-muted-foreground">{s.description}</p>
                           {s.prompt_patch && (
-                            <pre className="p-2 text-xs font-mono bg-muted/50 border border-border rounded overflow-x-auto text-foreground leading-relaxed">
+                            <pre className="p-2 text-xs font-mono bg-muted/50 border border-border rounded overflow-x-auto max-w-full text-foreground leading-relaxed whitespace-pre-wrap break-words">
                               <code>{s.prompt_patch}</code>
                             </pre>
                           )}
