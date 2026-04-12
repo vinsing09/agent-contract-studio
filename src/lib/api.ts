@@ -213,6 +213,19 @@ export const api = {
       },
     }),
 
+  runRegressionV2: (agentId: string, data: {
+    challenger_version_id: string;
+    baseline_version_id: string;
+  }) =>
+    fetch(`${API_BASE}/agents/${agentId}/regression-run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(data),
+    }),
+
   createDraft: (data: {
     name: string;
     business_goal: string;
