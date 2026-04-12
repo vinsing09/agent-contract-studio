@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { parseApiError } from "@/lib/utils";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Agent, type AgentVersion } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
 import { Box, Loader2, Shield, Target, Lock, Unlock, Filter, AlertCircle, Eye, Trash2 } from "lucide-react";
@@ -13,11 +13,12 @@ interface AgentWithVersion {
 
 export default function TestCaseAgentList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [agents, setAgents] = useState<AgentWithVersion[]>([]);
   const [allTestCases, setAllTestCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedAgentId, setSelectedAgentId] = useState<string>("all");
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(searchParams.get("agent") || "all");
 
   // Lock intent modal state
   const [lockModal, setLockModal] = useState<any | null>(null);
