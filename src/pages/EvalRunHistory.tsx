@@ -348,6 +348,16 @@ export default function EvalRunHistory() {
             </table>
           </div>
         )}
+
+        {/* Next step guidance */}
+        {results.length > 0 && agentId && (
+          <div className="mt-4 flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
+            <span className="text-foreground">→</span>
+            <a href={`/agents/${agentId}/test-cases`} className="text-primary hover:underline">
+              Lock passing cases to protect them from regression
+            </a>
+          </div>
+        )}
       </div>
     );
   }
