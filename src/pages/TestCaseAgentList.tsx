@@ -81,6 +81,7 @@ export default function TestCaseAgentList() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLocking, setBulkLocking] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, label: "" });
+  const [smartLockSummary, setSmartLockSummary] = useState<string | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -288,7 +289,7 @@ export default function TestCaseAgentList() {
       try {
         await api.lockTestCaseWithIntent(id, intent);
         setAllTestCases((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, locked: true, locked_at_pass: intent === "protect" } : item))
+          prev.map((item) => (item.id === id ? { ...item, locked: true, locked_at_pass: intent === "protect" ? 1 : 0 } : item))
         );
         succeeded += 1;
       } catch {
