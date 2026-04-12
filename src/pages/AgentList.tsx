@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, Agent } from "@/lib/api";
-import { Box, Loader2, FileText } from "lucide-react";
+import { Box, Loader2 } from "lucide-react";
 
 export default function AgentList() {
   const { data: agents, isLoading, error } = useQuery<Agent[]>({
