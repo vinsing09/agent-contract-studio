@@ -270,12 +270,6 @@ export default function TestCaseDetailPage() {
                 );
               })}
             </div>
-          </section>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         </div>
 
         {/* RIGHT COLUMN */}
