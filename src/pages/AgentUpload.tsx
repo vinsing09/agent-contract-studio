@@ -394,8 +394,10 @@ export default function AgentUpload() {
                 <div
                   key={issue.id}
                   className={`border rounded bg-card overflow-hidden transition-colors ${
-                    fix && !isAccepted
-                      ? "border-destructive/30"
+                    fix && isRejected
+                      ? "border-red-500/30 opacity-50"
+                      : fix
+                      ? "border-emerald-500/30"
                       : "border-border"
                   }`}
                 >
