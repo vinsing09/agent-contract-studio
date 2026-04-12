@@ -124,10 +124,7 @@ export default function AgentUpload() {
       const report = await api.auditDraft(d.id);
       setAuditReport(report);
 
-      const allFixIds = new Set(
-        (report.suggested_fixes ?? []).map((f) => f.id)
-      );
-      setAcceptedFixIds(allFixIds);
+      setRejectedFixIds(new Set());
 
       setStep(3);
     } catch (err: any) {
@@ -138,14 +135,14 @@ export default function AgentUpload() {
   };
 
   const handleCommit = async () => {
-    if (!draft) return;
+    if (!draft || !auditReport) return;
     setLoading(true);
     setError("");
     try {
-      const result = await api.commitDraft(
-        draft.id,
-        Array.from(acceptedFixIds)
-      );
+      const acceptedIds = (auditReport.suggested_fixes ?? [])
+        .filter((f) => !rejectedFixIds.has(f.id))
+        .map((f) => f.id);
+      const result = await api.commitDraft(draft.id, acceptedIds);
       navigate(`/agents/${result.agent_id}`);
     } catch (err: any) {
       setError(parseApiError(err));
@@ -154,10 +151,18 @@ export default function AgentUpload() {
     }
   };
 
-  const toggleFix = (fixId: string) => {
-    setAcceptedFixIds((prev) => {
+  const acceptFix = (fixId: string) => {
+    setRejectedFixIds((prev) => {
       const next = new Set(prev);
-      next.has(fixId) ? next.delete(fixId) : next.add(fixId);
+      next.delete(fixId);
+      return next;
+    });
+  };
+
+  const rejectFix = (fixId: string) => {
+    setRejectedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
       return next;
     });
   };
@@ -178,9 +183,9 @@ export default function AgentUpload() {
     return "bg-muted text-muted-foreground border-border";
   };
 
-  const acceptedCount = acceptedFixIds.size;
   const totalFixes = auditReport?.suggested_fixes?.length ?? 0;
-  const rejectedCount = totalFixes - acceptedCount;
+  const acceptedCount = totalFixes - rejectedFixIds.size;
+  const rejectedCount = rejectedFixIds.size;
 
   return (
     <div className="px-6 py-8 max-w-[680px] mx-auto animate-fade-in">
@@ -383,7 +388,8 @@ export default function AgentUpload() {
                 (f) => f.issue_id === issue.id
               );
               const isExpanded = expandedFixes.has(issue.id);
-              const isAccepted = fix ? acceptedFixIds.has(fix.id) : true;
+              const isRejected = fix ? rejectedFixIds.has(fix.id) : false;
+              const isAccepted = !isRejected;
               return (
                 <div
                   key={issue.id}
@@ -410,20 +416,22 @@ export default function AgentUpload() {
                       {fix && (
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
-                            onClick={(e) => { e.stopPropagation(); if (!isAccepted) toggleFix(fix.id); }}
+                            type="button"
+                            onClick={() => acceptFix(fix.id)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-colors ${
                               isAccepted
-                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                ? "bg-emerald-600 text-white border border-emerald-600"
                                 : "bg-card border border-border text-muted-foreground hover:bg-muted"
                             }`}
                           >
                             <Check className="w-3 h-3" /> Accept
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); if (isAccepted) toggleFix(fix.id); }}
+                            type="button"
+                            onClick={() => rejectFix(fix.id)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-colors ${
-                              !isAccepted
-                                ? "bg-destructive/10 text-destructive border border-destructive/30"
+                              isRejected
+                                ? "bg-red-500 text-white border border-red-500"
                                 : "bg-card border border-border text-muted-foreground hover:bg-muted"
                             }`}
                           >
