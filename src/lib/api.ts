@@ -303,4 +303,20 @@ export const api = {
 
   getEvalRunDetail: (runId: string) =>
     request<any>(`/eval-runs/${runId}`),
+
+  getSuggestions: (agentId: string, versionId: string, evalRunId: string) =>
+    request<{ suggestions: any[] }>(
+      `/agents/${agentId}/versions/${versionId}/improvements?eval_run_id=${evalRunId}`,
+      { method: "POST" }
+    ),
+
+  applySuggestions: (agentId: string, versionId: string, data: {
+    accepted_fix_ids: string[];
+    eval_run_id: string;
+    label: string;
+  }) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/improvements/apply`,
+      { method: "POST", body: JSON.stringify(data) }
+    ),
 };

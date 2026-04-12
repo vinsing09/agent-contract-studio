@@ -4,7 +4,7 @@ import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalR
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
-  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus
+  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus, Sparkles, Check
 } from "lucide-react";
 
 export default function AgentDetail() {
