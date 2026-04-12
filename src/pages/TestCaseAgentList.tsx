@@ -96,7 +96,7 @@ export default function TestCaseAgentList() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [selectedAgentId]);
+  }, [selectedFilter]);
 
   const loadAll = async () => {
     try {
