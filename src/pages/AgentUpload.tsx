@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { api, type AgentDraft, type AuditReport } from "@/lib/api";
 import { CodeBlock } from "@/components/ui-shared";

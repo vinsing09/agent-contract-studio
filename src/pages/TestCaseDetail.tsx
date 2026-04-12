@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
