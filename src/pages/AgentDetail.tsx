@@ -677,7 +677,7 @@ export default function AgentDetail() {
               {runningEval && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {latestRun ? "Re-run Eval" : "Run Full Eval"}
             </button>
-            {latestRun && (latestRun as any).status === "completed" && (
+            {latestRun && ((latestRun as any).status === "completed" || (latestRun as any).status === "blocked") && (
               <button
                 onClick={handleSuggestImprovements}
                 disabled={loadingSuggestions}
