@@ -245,7 +245,7 @@ export default function TestCaseDetailPage() {
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Assertions</h2>
             <div className="space-y-1">
-              {assertions.map((a, i) => {
+              {assertions.map((a: any, i: number) => {
                 const typeStyle = assertionTypeColors[a.type] || "bg-muted text-muted-foreground border-border";
                 return (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 border border-border rounded bg-card text-sm flex-wrap">
@@ -255,7 +255,7 @@ export default function TestCaseDetailPage() {
                     {(a.tool_name || a.tool) && (
                       <span className="font-mono text-foreground text-xs">{a.tool_name || a.tool}</span>
                     )}
-                    {(a.param) && (
+                    {a.param && (
                       <span className="text-muted-foreground text-xs font-mono">.{a.param}</span>
                     )}
                     {(a.expected != null || a.value != null) && (
