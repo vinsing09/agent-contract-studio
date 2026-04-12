@@ -383,25 +383,56 @@ export default function AgentUpload() {
                 (f) => f.issue_id === issue.id
               );
               const isExpanded = expandedFixes.has(issue.id);
+              const isAccepted = fix ? acceptedFixIds.has(fix.id) : true;
               return (
                 <div
                   key={issue.id}
-                  className="border border-border rounded bg-card overflow-hidden"
+                  className={`border rounded bg-card overflow-hidden transition-colors ${
+                    fix && !isAccepted
+                      ? "border-destructive/30"
+                      : "border-border"
+                  }`}
                 >
                   <div className="px-4 py-3 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded border uppercase ${severityColor(
-                          issue.severity
-                        )}`}
-                      >
-                        {issue.severity}
-                      </span>
-                      <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded border border-border bg-muted text-muted-foreground">
-                        {issue.gap_type.replace("_", " ")}
-                      </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded border uppercase ${severityColor(
+                            issue.severity
+                          )}`}
+                        >
+                          {issue.severity}
+                        </span>
+                        <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded border border-border bg-muted text-muted-foreground">
+                          {issue.gap_type.replace("_", " ")}
+                        </span>
+                      </div>
+                      {fix && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => { if (!isAccepted) toggleFix(fix.id); }}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                              isAccepted
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                : "bg-card border border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" /> Accept
+                          </button>
+                          <button
+                            onClick={() => { if (isAccepted) toggleFix(fix.id); }}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                              !isAccepted
+                                ? "bg-destructive/10 text-destructive border border-destructive/30"
+                                : "bg-card border border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <X className="w-3 h-3" /> Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-foreground">
+                    <p className={`text-sm ${!isAccepted ? "text-muted-foreground/50 line-through" : "text-foreground"}`}>
                       {issue.description}
                     </p>
                   </div>
@@ -422,43 +453,21 @@ export default function AgentUpload() {
 
                       {isExpanded && (
                         <div className={`px-4 pb-3 border-t pt-3 space-y-3 transition-colors ${
-                          !acceptedFixIds.has(fix.id)
+                          !isAccepted
                             ? "border-destructive/30 bg-destructive/5"
                             : "border-border"
                         }`}>
                           <p className={`text-sm italic ${
-                            !acceptedFixIds.has(fix.id)
+                            !isAccepted
                               ? "text-muted-foreground/50 line-through"
                               : "text-muted-foreground"
                           }`}>
                             {fix.description}
                           </p>
-                          <div className={!acceptedFixIds.has(fix.id) ? "opacity-50 line-through decoration-destructive/50" : ""}>
+                          <div className={!isAccepted ? "opacity-50 line-through decoration-destructive/50" : ""}>
                             <CodeBlock label="Prompt Patch">
                               {fix.prompt_patch}
                             </CodeBlock>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => toggleFix(fix.id)}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                                acceptedFixIds.has(fix.id)
-                                  ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                                  : "bg-card border border-border text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <Check className="w-3 h-3" /> Accept
-                            </button>
-                            <button
-                              onClick={() => toggleFix(fix.id)}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                                !acceptedFixIds.has(fix.id)
-                                  ? "bg-destructive/10 text-destructive border border-destructive/30"
-                                  : "bg-card border border-border text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <X className="w-3 h-3" /> Reject
-                            </button>
                           </div>
                         </div>
                       )}
