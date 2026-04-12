@@ -184,6 +184,7 @@ export default function TestCaseAgentList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
+                <th className="text-center px-3 py-2 text-xs font-medium text-muted-foreground w-12">#</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Agent</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Scenario</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Tags</th>
@@ -192,10 +193,11 @@ export default function TestCaseAgentList() {
               </tr>
             </thead>
             <tbody>
-              {filteredCases.map((tc) => {
+              {filteredCases.map((tc, index) => {
                 const obligationCount = tc.obligation_ids?.length || 0;
                 return (
                   <tr key={tc.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-3 py-2.5 text-xs text-center text-muted-foreground font-mono">{index + 1}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{tc._agent_name}</td>
                     <td className="px-3 py-2.5 text-foreground max-w-[280px]">
                       <Link to={`/test-cases/${tc.id}`} className="hover:text-primary transition-colors">
