@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api, type Agent, type AgentVersion } from "@/lib/api";
-import { Loader2, AlertCircle, ChevronDown, ChevronRight, Check, X } from "lucide-react";
+import { Loader2, AlertCircle, ChevronDown, ChevronRight, Check, X, Info } from "lucide-react";
 import { parseApiError } from "@/lib/utils";
 
 interface FailedAssertion {
@@ -39,6 +39,7 @@ export default function RegressionDashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [lockedCounts, setLockedCounts] = useState<Record<string, number>>({});
   const [challengerVersionId, setChallengerVersionId] = useState<string | null>(null);
   const [baselineVersionId, setBaselineVersionId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -60,14 +61,29 @@ export default function RegressionDashboard() {
       setChallengerVersionId(null);
       setBaselineVersionId(null);
       setResult(null);
+      setLockedCounts({});
       return;
     }
     api.getAgentVersions(selectedAgentId)
-      .then((v) => {
+      .then(async (v) => {
         setVersions(v);
         setBaselineVersionId(null);
         setChallengerVersionId(v.length > 0 ? v[v.length - 1].id : null);
         setResult(null);
+
+        // Fetch locked counts per version
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          v.map(async (ver) => {
+            try {
+              const cases = await api.getTestCasesV2(selectedAgentId, ver.id);
+              counts[ver.id] = Array.isArray(cases) ? cases.filter((c: any) => c.locked).length : 0;
+            } catch {
+              counts[ver.id] = 0;
+            }
+          })
+        );
+        setLockedCounts(counts);
       })
       .catch((err) => setError(parseApiError(err)));
   }, [selectedAgentId]);
@@ -101,19 +117,30 @@ export default function RegressionDashboard() {
         const detail = json.detail || json;
         setResult({ ...detail, status: detail.status || "BLOCKED" });
       } else {
-        setError("Regression run failed");
+        // Parse error body for friendly messages
+        let msg = `Regression run failed (HTTP ${res.status})`;
+        try {
+          const json = await res.json();
+          const detail = typeof json.detail === "string" ? json.detail : "";
+          if (res.status === 404) {
+            msg = "Agent or version not found. Please refresh and try again.";
+          } else if (res.status === 400 && detail.toLowerCase().includes("no locked")) {
+            msg = "No locked test cases found in the selected baseline version. Go to Test Cases and lock some cases first.";
+          } else if (res.status === 400 && detail.toLowerCase().includes("baseline") && detail.toLowerCase().includes("challenger")) {
+            msg = "Baseline and challenger cannot be the same version.";
+          } else if (detail) {
+            msg = detail;
+          }
+        } catch {
+          // couldn't parse JSON, use default msg
+        }
+        setError(msg);
       }
     } catch (err: any) {
       setError(parseApiError(err));
     } finally {
       setRunning(false);
     }
-  };
-
-  const versionLabel = (id: string | null) => {
-    if (!id) return "";
-    const v = versions.find((ver) => ver.id === id);
-    return v ? `v${v.version_number} — ${v.label}` : id;
   };
 
   const versionShort = (id: string | null) => {
@@ -146,13 +173,13 @@ export default function RegressionDashboard() {
       </p>
 
       {error && (
-        <div className="mb-4 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {error}
+        <div className="mb-4 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
         {/* Agent */}
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">Agent</label>
@@ -180,10 +207,21 @@ export default function RegressionDashboard() {
             disabled={!selectedAgentId}
           >
             <option value="">Select version…</option>
-            {versions.map((v) => (
-              <option key={v.id} value={v.id}>v{v.version_number} — {v.label}</option>
-            ))}
+            {versions.map((v) => {
+              const count = lockedCounts[v.id];
+              const suffix = count != null ? ` · ${count} locked` : "";
+              return (
+                <option
+                  key={v.id}
+                  value={v.id}
+                  className={count === 0 ? "text-muted-foreground" : ""}
+                >
+                  v{v.version_number} — {v.label}{suffix}
+                </option>
+              );
+            })}
           </select>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Must have locked test cases</p>
         </div>
 
         {/* Challenger */}
@@ -202,7 +240,18 @@ export default function RegressionDashboard() {
               <option key={v.id} value={v.id}>v{v.version_number} — {v.label}</option>
             ))}
           </select>
+          <p className="text-[10px] text-muted-foreground mt-0.5">The version being tested</p>
         </div>
+      </div>
+
+      {/* Helper text */}
+      <div className="mb-4 px-3 py-2 rounded bg-muted/30 border border-border flex items-start gap-2">
+        <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <strong>Baseline</strong> = the version whose locked test cases define expected behavior.{" "}
+          <strong>Challenger</strong> = the new version you want to test against those cases.
+          Typically: baseline is your last stable version, challenger is your latest change.
+        </p>
       </div>
 
       <button
