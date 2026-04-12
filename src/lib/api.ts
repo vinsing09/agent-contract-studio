@@ -94,6 +94,50 @@ export interface RegressionCase {
   status?: "PASS" | "FAIL" | "NEVER_RUN";
 }
 
+export interface AgentDraft {
+  id: string;
+  name: string;
+  business_goal: string;
+  desired_behaviors: string[];
+  raw_system_prompt: string;
+  tool_schemas: any[];
+  created_at: string;
+}
+
+export interface AuditIssue {
+  id: string;
+  severity: "high" | "medium" | "low";
+  description: string;
+  gap_type: "missing" | "ambiguous" | "contradicts_goal";
+}
+
+export interface SuggestedFix {
+  id: string;
+  issue_id: string;
+  description: string;
+  prompt_patch: string;
+}
+
+export interface AuditReport {
+  id: string;
+  agent_draft_id: string;
+  issues: AuditIssue[];
+  suggested_fixes: SuggestedFix[];
+  created_at: string;
+}
+
+export interface AgentVersion {
+  id: string;
+  agent_id: string;
+  version_number: number;
+  label: string;
+  system_prompt: string;
+  tool_schemas: any[];
+  parent_version_id: string | null;
+  source: string;
+  created_at: string;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -168,4 +212,29 @@ export const api = {
         "ngrok-skip-browser-warning": "true",
       },
     }),
+
+  createDraft: (data: {
+    name: string;
+    business_goal: string;
+    desired_behaviors: string[];
+    system_prompt: string;
+    tool_schemas: any[];
+  }) => request<AgentDraft>("/agents/draft", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+
+  auditDraft: (draftId: string) =>
+    request<AuditReport>(`/agents/draft/${draftId}/audit`, {
+      method: "POST",
+    }),
+
+  commitDraft: (draftId: string, acceptedFixIds: string[]) =>
+    request<{ agent_id: string; version_id: string; agent_name: string; fixes_applied: number }>(
+      `/agents/draft/${draftId}/commit`,
+      { method: "POST", body: JSON.stringify({ accepted_fix_ids: acceptedFixIds }) }
+    ),
+
+  getAgentVersions: (agentId: string) =>
+    request<AgentVersion[]>(`/agents/${agentId}/versions`),
 };
