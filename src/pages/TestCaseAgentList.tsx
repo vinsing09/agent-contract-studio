@@ -61,11 +61,20 @@ function getLatestRunForAgent(runs: EvalRun[], agentId: string): EvalRun | null 
 
 export default function TestCaseAgentList() {
   const [searchParams] = useSearchParams();
-  const [agents, setAgents] = useState<AgentWithVersion[]>([]);
+  const [agents, setAgents] = useState<AgentWithVersions[]>([]);
   const [allTestCases, setAllTestCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedAgentId, setSelectedAgentId] = useState<string>(searchParams.get("agent") || "all");
+  // Filter key: "all" | "agent::{agentId}::version::{versionId}"
+  const initFilter = (() => {
+    const a = searchParams.get("agent_id") || searchParams.get("agent");
+    const v = searchParams.get("version_id");
+    if (a && v) return `agent::${a}::version::${v}`;
+    return "all";
+  })();
+  const [selectedFilter, setSelectedFilter] = useState<string>(initFilter);
+  const [evalStatusByCase, setEvalStatusByCase] = useState<Record<string, EvalStatus>>({});
+  const [latestEvalRunByAgent, setLatestEvalRunByAgent] = useState<Record<string, EvalRun | null>>({});
   const [evalStatusByCase, setEvalStatusByCase] = useState<Record<string, EvalStatus>>({});
   const [latestEvalRunByAgent, setLatestEvalRunByAgent] = useState<Record<string, EvalRun | null>>({});
 
