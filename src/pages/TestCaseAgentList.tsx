@@ -523,20 +523,12 @@ export default function TestCaseAgentList() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => bulkLock(selectedLockableCases.map((tc) => tc.id), "protect", selectedSkippedCount)}
-              disabled={selectedLockableCases.length === 0}
+              onClick={smartLockFromEval}
+              disabled={bulkLocking || selectedLockableCases.length === 0}
               className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
-              <Shield className="h-3 w-3 text-success" />
-              Lock as Must Hold
-            </button>
-            <button
-              onClick={() => bulkLock(selectedLockableCases.map((tc) => tc.id), "track", selectedSkippedCount)}
-              disabled={selectedLockableCases.length === 0}
-              className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-            >
-              <Target className="h-3 w-3 text-primary" />
-              Lock as Watch
+              <Lock className="h-3 w-3" />
+              Lock from Eval Results
             </button>
             <button
               onClick={() => bulkUnlock(selectedLockedCases.map((tc) => tc.id))}
