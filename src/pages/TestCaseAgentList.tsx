@@ -20,9 +20,9 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface AgentWithVersion {
+interface AgentWithVersions {
   agent: Agent;
-  latestVersion: AgentVersion | null;
+  versions: AgentVersion[];
 }
 
 type EvalStatus = "PASS" | "FAIL";
