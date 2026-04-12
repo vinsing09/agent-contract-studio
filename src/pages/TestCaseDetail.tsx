@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
@@ -91,7 +92,7 @@ export default function TestCaseDetailPage() {
       }
       setTc({ ...tc, locked: !tc.locked });
     } catch (err: any) {
-      setLockError(err.message);
+      setLockError(parseApiError(err));
     } finally {
       setLockLoading(false);
     }

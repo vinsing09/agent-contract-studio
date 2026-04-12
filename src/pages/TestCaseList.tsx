@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCase, type Agent, type AgentVersion } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
@@ -167,8 +168,7 @@ export default function TestCaseList() {
       );
       setLockModal(null);
     } catch (err: any) {
-      // Parse error message for 400 responses
-      setLockError(err.message || "Failed to lock test case");
+      setLockError(parseApiError(err));
     } finally {
       setLockingCase(false);
     }

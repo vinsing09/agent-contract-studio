@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { api, type AgentDraft, type AuditReport } from "@/lib/api";
 import { CodeBlock } from "@/components/ui-shared";
@@ -130,7 +131,7 @@ export default function AgentUpload() {
 
       setStep(3);
     } catch (err: any) {
-      setError(err.message);
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,7 @@ export default function AgentUpload() {
       );
       navigate(`/agents/${result.agent_id}`);
     } catch (err: any) {
-      setError(err.message);
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
