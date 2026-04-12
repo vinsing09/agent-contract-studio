@@ -513,6 +513,55 @@ export default function AgentDetail() {
             </section>
           )}
 
+          {/* Next Step Guidance */}
+          {(() => {
+            const hasLockedCases = testCases.some((tc) => tc.locked);
+            const hasEvalRun = !!latestRun;
+
+            if (!hasContract) {
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
+                  <span className="text-primary font-bold">→</span>
+                  Start by generating a contract from your agent definition
+                </div>
+              );
+            }
+            if (!hasTests) {
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
+                  <span className="text-primary font-bold">→</span>
+                  Generate test cases to start evaluating your agent
+                </div>
+              );
+            }
+            if (!hasEvalRun) {
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
+                  <span className="text-primary font-bold">→</span>
+                  Run an eval to see how your agent performs
+                </div>
+              );
+            }
+            if (!hasLockedCases) {
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
+                  <span className="text-primary font-bold">→</span>
+                  <Link to={`/agents/${id}/test-cases`} className="text-primary hover:underline">
+                    Go to Test Cases to review results and lock cases for regression protection
+                  </Link>
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
+                <span className="text-primary font-bold">→</span>
+                <Link to="/regression" className="text-primary hover:underline">
+                  Go to Regression to test a new version against your locked cases
+                </Link>
+              </div>
+            );
+          })()}
+
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
             <button
@@ -550,55 +599,6 @@ export default function AgentDetail() {
               Run Full Eval
             </button>
           </div>
-
-          {/* Next Step Guidance */}
-          {(() => {
-            const hasLockedCases = testCases.some((tc) => tc.locked);
-            const hasEvalRun = !!latestRun;
-
-            if (!hasContract) {
-              return (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
-                  <span className="text-foreground">→</span>
-                  Start by generating a contract from your agent definition
-                </div>
-              );
-            }
-            if (!hasTests) {
-              return (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
-                  <span className="text-foreground">→</span>
-                  Generate test cases to start evaluating your agent
-                </div>
-              );
-            }
-            if (!hasEvalRun) {
-              return (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
-                  <span className="text-foreground">→</span>
-                  Run an eval to see how your agent performs
-                </div>
-              );
-            }
-            if (!hasLockedCases) {
-              return (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
-                  <span className="text-foreground">→</span>
-                  <Link to={`/agents/${id}/test-cases`} className="text-primary hover:underline">
-                    Go to Test Cases to review results and lock cases for regression protection
-                  </Link>
-                </div>
-              );
-            }
-            return (
-              <div className="flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
-                <span className="text-foreground">→</span>
-                <Link to="/regression" className="text-primary hover:underline">
-                  Go to Regression to test a new version against your locked cases
-                </Link>
-              </div>
-            );
-          })()}
         </div>
       </div>
 
