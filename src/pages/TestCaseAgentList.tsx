@@ -558,24 +558,29 @@ export default function TestCaseAgentList() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      {tc.locked && (tc as any).locked_at_pass === 1 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">
-                          <Shield className="w-3 h-3" /> Protected
-                        </span>
-                      )}
-                      {tc.locked && (tc as any).locked_at_pass === 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
-                          <Target className="w-3 h-3" /> Tracking
-                        </span>
-                      )}
-                      {tc.locked && (tc as any).locked_at_pass === null && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground border border-border rounded">
-                          <Lock className="w-3 h-3" /> Locked
-                        </span>
-                      )}
-                      {!tc.locked && (
-                        <span className="text-muted-foreground/50">—</span>
-                      )}
+                      {(() => {
+                        if (!tc.locked) return <span className="text-muted-foreground/50">—</span>;
+                        const lap = (tc as any).locked_at_pass;
+                        if (lap === true || lap === 1) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">
+                              <Shield className="w-3 h-3" /> Protected
+                            </span>
+                          );
+                        }
+                        if (lap === false || lap === 0) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
+                              <Target className="w-3 h-3" /> Tracking
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground border border-border rounded">
+                            <Lock className="w-3 h-3" /> Locked
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <div className="inline-flex items-center gap-1.5">
