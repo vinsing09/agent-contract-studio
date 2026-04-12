@@ -98,6 +98,15 @@ export default function TestCaseAgentList() {
     setSelectedIds(new Set());
   }, [selectedFilter]);
 
+  // Parse selectedFilter into agentId / versionId
+  const parseFilter = (f: string) => {
+    if (f === "all") return { agentId: null, versionId: null };
+    const m = f.match(/^agent::(.+?)::version::(.+)$/);
+    if (m) return { agentId: m[1], versionId: m[2] };
+    return { agentId: null, versionId: null };
+  };
+  const { agentId: selectedAgentId, versionId: selectedVersionId } = parseFilter(selectedFilter);
+
   const loadAll = async () => {
     try {
       const [agentList, runs] = await Promise.all([
@@ -105,29 +114,44 @@ export default function TestCaseAgentList() {
         api.getEvalRuns().catch(() => [] as EvalRun[]),
       ]);
 
-      const agentsWithVersions: AgentWithVersion[] = [];
+      const agentsData: AgentWithVersions[] = [];
       const cases: any[] = [];
       const statusMap: Record<string, EvalStatus> = {};
       const latestRunsMap: Record<string, EvalRun | null> = {};
 
       await Promise.all(
         agentList.map(async (agent) => {
-          let latestVersion: AgentVersion | null = null;
+          let versions: AgentVersion[] = [];
           let agentCases: any[] = [];
 
           try {
-            const versions = await api.getAgentVersions(agent.id);
-            if (versions.length > 0) {
-              latestVersion = versions.reduce((a, b) => (a.version_number > b.version_number ? a : b));
-              agentCases = await api.getTestCasesV2(agent.id, latestVersion.id);
-            } else {
-              agentCases = await api.getTestCases(agent.id);
-            }
+            versions = await api.getAgentVersions(agent.id);
+            // Fetch test cases for each version
+            await Promise.all(
+              versions.map(async (v) => {
+                try {
+                  const vCases = await api.getTestCasesV2(agent.id, v.id);
+                  agentCases.push(
+                    ...vCases.map((tc: any) => ({
+                      ...tc,
+                      _agent_name: agent.name,
+                      _agent_id: agent.id,
+                      _version_id: v.id,
+                      _version_number: v.version_number,
+                      _version_label: v.label,
+                    }))
+                  );
+                } catch {
+                  // version has no test cases
+                }
+              })
+            );
           } catch {
             try {
-              agentCases = await api.getTestCases(agent.id);
+              const fallback = await api.getTestCases(agent.id);
+              agentCases.push(...fallback.map((tc: any) => ({ ...tc, _agent_name: agent.name, _agent_id: agent.id, _version_id: null, _version_number: null, _version_label: null })));
             } catch {
-              agentCases = [];
+              // no cases
             }
           }
 
@@ -143,15 +167,17 @@ export default function TestCaseAgentList() {
             }
           }
 
-          agentsWithVersions.push({ agent, latestVersion });
-          cases.push(...agentCases.map((tc: any) => ({ ...tc, _agent_name: agent.name, _agent_id: agent.id })));
+          agentsData.push({ agent, versions });
+          cases.push(...agentCases);
         })
       );
 
-      setAgents(agentsWithVersions);
+      setAgents(agentsData);
       setAllTestCases(cases);
       setEvalStatusByCase(statusMap);
       setLatestEvalRunByAgent(latestRunsMap);
+
+      // If filter was set via URL but versions weren't loaded yet, auto-select if valid
     } catch (err: any) {
       setError(parseApiError(err));
     } finally {
@@ -160,12 +186,12 @@ export default function TestCaseAgentList() {
   };
 
   const filteredCases =
-    selectedAgentId === "all"
+    selectedFilter === "all"
       ? allTestCases
-      : allTestCases.filter((tc) => tc._agent_id === selectedAgentId || tc.agent_id === selectedAgentId);
+      : allTestCases.filter((tc) => tc._agent_id === selectedAgentId && tc._version_id === selectedVersionId);
 
-  const latestEvalRun = selectedAgentId !== "all" ? latestEvalRunByAgent[selectedAgentId] ?? null : null;
-  const isAgentFiltered = selectedAgentId !== "all";
+  const latestEvalRun = selectedAgentId ? latestEvalRunByAgent[selectedAgentId] ?? null : null;
+  const isAgentFiltered = selectedFilter !== "all";
   const selectedCases = filteredCases.filter((tc) => selectedIds.has(tc.id));
   const selectionCount = selectedCases.length;
 
