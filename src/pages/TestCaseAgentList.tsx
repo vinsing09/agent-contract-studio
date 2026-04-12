@@ -619,27 +619,24 @@ export default function TestCaseAgentList() {
                     <td className="px-3 py-2.5 text-center">
                       {(() => {
                         if (!tc.locked) return <span className="text-muted-foreground/50">—</span>;
-                        if (!tc.locked) {
-                           return <span className="text-muted-foreground">—</span>;
-                         }
-                         if (tc.lock_type === "protect") {
-                           return (
-                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">
-                               <Shield className="w-3 h-3" /> Must Hold
-                             </span>
-                           );
-                         }
-                         if (tc.lock_type === "track") {
-                           return (
-                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
-                               <Target className="w-3 h-3" /> Track Progress
-                             </span>
-                           );
-                         }
-                         return (
-                           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground border border-border rounded">
-                             <Lock className="w-3 h-3" /> Locked
-                           </span>
+                        if (tc.locked_at_pass === 1) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">
+                              <Shield className="w-3 h-3" /> Must Hold
+                            </span>
+                          );
+                        }
+                        if (tc.locked_at_pass === 0) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
+                              <Target className="w-3 h-3" /> Watching
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground border border-border rounded">
+                            <Lock className="w-3 h-3" /> Spec Case
+                          </span>
                         );
                       })()}
                     </td>

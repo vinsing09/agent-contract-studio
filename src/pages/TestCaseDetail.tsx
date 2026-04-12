@@ -170,12 +170,12 @@ export default function TestCaseDetailPage() {
           <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
           {tc.locked && (
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm shrink-0 ${
-              tc.lock_type === "protect" ? "bg-green-500/15 text-green-400 border border-green-500/30" :
-              tc.lock_type === "track" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
-              "bg-primary/15 text-primary border border-primary/30"
+              (tc as any).locked_at_pass === 1 ? "bg-green-500/15 text-green-400 border border-green-500/30" :
+              (tc as any).locked_at_pass === 0 ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+              "bg-muted text-muted-foreground border border-border"
             }`}>
               <Lock className="w-3 h-3" />
-              {tc.lock_type === "protect" ? "Must Hold" : tc.lock_type === "track" ? "Track Progress" : "Locked"}
+              {(tc as any).locked_at_pass === 1 ? "Must Hold" : (tc as any).locked_at_pass === 0 ? "Watching" : "Spec Case"}
             </span>
           )}
         </div>
@@ -183,11 +183,11 @@ export default function TestCaseDetailPage() {
           {tc.locked ? (
             <>
               <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded ${
-                tc.lock_type === "protect" ? "bg-green-500/15 text-green-400 border border-green-500/30" :
-                tc.lock_type === "track" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
-                "bg-primary text-primary-foreground"
+                (tc as any).locked_at_pass === 1 ? "bg-green-500/15 text-green-400 border border-green-500/30" :
+                (tc as any).locked_at_pass === 0 ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+                "bg-muted text-muted-foreground border border-border"
               }`}>
-                🔒 {tc.lock_type === "protect" ? "Must Hold" : tc.lock_type === "track" ? "Track Progress" : "Locked"}
+                🔒 {(tc as any).locked_at_pass === 1 ? "Must Hold" : (tc as any).locked_at_pass === 0 ? "Watching" : "Spec Case"}
               </span>
               <button
                 onClick={handleToggleLock}
