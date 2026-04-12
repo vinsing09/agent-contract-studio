@@ -166,6 +166,66 @@ export default function AgentDetail() {
     });
   };
 
+  const handleSwitchVersion = async (version: AgentVersion) => {
+    if (!id || version.id === activeVersion?.id) return;
+    setSwitchingVersion(true);
+    setActiveVersion(version);
+    try {
+      const [c, cases] = await Promise.all([
+        api.getContractV2(id, version.id).catch(() => null),
+        api.getTestCasesV2(id, version.id).catch(() => []),
+      ]);
+      setContract(c);
+      setTestCases(Array.isArray(cases) ? cases : []);
+    } catch {} finally {
+      setSwitchingVersion(false);
+    }
+  };
+
+  const handleCreateVersion = async () => {
+    if (!id || !newVersionLabel.trim()) return;
+    setCreatingVersion(true);
+    setNewVersionError("");
+    try {
+      let parsedSchemas = activeVersion?.tool_schemas || [];
+      if (newVersionSchemas.trim()) {
+        try { parsedSchemas = JSON.parse(newVersionSchemas); } catch {}
+      }
+      await api.createVersion(id, {
+        system_prompt: newVersionPrompt,
+        tool_schemas: parsedSchemas,
+        label: newVersionLabel,
+      });
+      const vList = await api.getAgentVersions(id);
+      const sorted = Array.isArray(vList) ? vList : [];
+      setVersions(sorted);
+      const latest = sorted.reduce((a, b) => a.version_number > b.version_number ? a : b);
+      setActiveVersion(latest);
+      const [c, cases] = await Promise.all([
+        api.getContractV2(id, latest.id).catch(() => null),
+        api.getTestCasesV2(id, latest.id).catch(() => []),
+      ]);
+      setContract(c);
+      setTestCases(Array.isArray(cases) ? cases : []);
+      setShowNewVersionDrawer(false);
+      setNewVersionLabel("");
+      setNewVersionPrompt("");
+      setNewVersionSchemas("");
+    } catch (err: any) {
+      setNewVersionError(err.message || "Failed to create version");
+    } finally {
+      setCreatingVersion(false);
+    }
+  };
+
+  const openNewVersionDrawer = () => {
+    setNewVersionPrompt(activeVersion?.system_prompt || agent?.system_prompt || "");
+    setNewVersionSchemas(JSON.stringify(activeVersion?.tool_schemas || agent?.tool_schemas || [], null, 2));
+    setNewVersionLabel("");
+    setNewVersionError("");
+    setShowNewVersionDrawer(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
