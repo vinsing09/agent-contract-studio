@@ -286,4 +286,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  getEvalRunDetail: (runId: string) =>
+    request<any>(`/eval-runs/${runId}`),
 };
