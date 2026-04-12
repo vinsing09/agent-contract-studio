@@ -169,17 +169,25 @@ export default function TestCaseDetailPage() {
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
           {tc.locked && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-primary/15 text-primary border border-primary/30 rounded-sm shrink-0">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm shrink-0 ${
+              tc.lock_type === "protect" ? "bg-green-500/15 text-green-400 border border-green-500/30" :
+              tc.lock_type === "track" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+              "bg-primary/15 text-primary border border-primary/30"
+            }`}>
               <Lock className="w-3 h-3" />
-              Spec Case
+              {tc.lock_type === "protect" ? "Must Hold" : tc.lock_type === "track" ? "Track Progress" : "Locked"}
             </span>
           )}
         </div>
         <div className="shrink-0 flex items-center gap-2">
           {tc.locked ? (
             <>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
-                🔒 Spec Case
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded ${
+                tc.lock_type === "protect" ? "bg-green-500/15 text-green-400 border border-green-500/30" :
+                tc.lock_type === "track" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+                "bg-primary text-primary-foreground"
+              }`}>
+                🔒 {tc.lock_type === "protect" ? "Must Hold" : tc.lock_type === "track" ? "Track Progress" : "Locked"}
               </span>
               <button
                 onClick={handleToggleLock}
