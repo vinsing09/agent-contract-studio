@@ -612,7 +612,7 @@ export default function AgentDetail() {
                 <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
                   <span className="text-primary font-bold">→</span>
                   Lock cases to build your behavioral spec —{" "}
-                  <Link to={`/test-cases?agent=${id}`} className="text-primary hover:underline">
+                  <Link to={`/test-cases?agent_id=${id}${activeVersion ? `&version_id=${activeVersion.id}` : ''}`} className="text-primary hover:underline">
                     Go to Test Cases →
                   </Link>
                 </div>
@@ -650,7 +650,7 @@ export default function AgentDetail() {
             </button>
             {hasTests ? (
               <Link
-                to={`/test-cases?agent=${id}`}
+                to={`/test-cases?agent_id=${id}${activeVersion ? `&version_id=${activeVersion.id}` : ''}`}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97]"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-success" /> {testCases.length} Test Cases
