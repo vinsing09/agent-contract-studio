@@ -81,6 +81,7 @@ export default function TestCaseAgentList() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLocking, setBulkLocking] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, label: "" });
+  const [smartLockSummary, setSmartLockSummary] = useState<string | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -288,7 +289,7 @@ export default function TestCaseAgentList() {
       try {
         await api.lockTestCaseWithIntent(id, intent);
         setAllTestCases((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, locked: true, locked_at_pass: intent === "protect" } : item))
+          prev.map((item) => (item.id === id ? { ...item, locked: true, locked_at_pass: intent === "protect" ? 1 : 0 } : item))
         );
         succeeded += 1;
       } catch {
@@ -341,6 +342,77 @@ export default function TestCaseAgentList() {
     }
   };
 
+  const smartLockFromEval = async () => {
+    if (selectedAgentId === "all" || !selectedAgentId) return;
+    setBulkLocking(true);
+    setError("");
+    setSmartLockSummary(null);
+
+    try {
+      const runs = await api.getEvalRuns();
+      const agentRuns = runs
+        .filter((r) => r.agent_id === selectedAgentId)
+        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+
+      if (agentRuns.length === 0) {
+        setError("No eval runs found for this agent. Run an eval first.");
+        setBulkLocking(false);
+        return;
+      }
+
+      const results = await api.getEvalRunResults(agentRuns[0].id);
+      const unlockedCases = filteredCases.filter((tc) => !tc.locked);
+      const total = unlockedCases.length;
+      let mustHold = 0;
+      let watching = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (let i = 0; i < unlockedCases.length; i++) {
+        const tc = unlockedCases[i];
+        setBulkProgress({ current: i + 1, total, label: "Locking cases" });
+
+        const caseResults = results.filter(
+          (r) => r.test_case_id === tc.id && ((r as any).result_type === "deterministic" || !(r as any).result_type)
+        );
+
+        if (caseResults.length === 0) {
+          skipped++;
+          continue;
+        }
+
+        const allPassed = caseResults.every((r) => r.passed === true);
+        const intent: "protect" | "track" = allPassed ? "protect" : "track";
+
+        try {
+          await api.lockTestCaseWithIntent(tc.id, intent);
+          setAllTestCases((prev) =>
+            prev.map((item) =>
+              item.id === tc.id ? { ...item, locked: true, locked_at_pass: allPassed ? 1 : 0 } : item
+            )
+          );
+          if (allPassed) mustHold++;
+          else watching++;
+        } catch {
+          failed++;
+        }
+      }
+
+      const locked = mustHold + watching;
+      const parts = [`Locked ${locked} case${locked !== 1 ? "s" : ""}`];
+      if (mustHold > 0) parts.push(`${mustHold} Must Hold`);
+      if (watching > 0) parts.push(`${watching} Watching`);
+      if (skipped > 0) parts.push(`${skipped} skipped`);
+      if (failed > 0) parts.push(`${failed} failed`);
+      setSmartLockSummary(parts.join(" — "));
+    } catch (err: any) {
+      setError(parseApiError(err));
+    } finally {
+      setBulkLocking(false);
+      setSelectedIds(new Set());
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -390,15 +462,8 @@ export default function TestCaseAgentList() {
             <div>
               <p className="text-sm font-medium text-foreground">Bulk Lock</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {evaluatedFilteredCases.length > 0 ? (
-                  <>
-                    Eval results: {passingAllCases.length} passing, {failingAllCases.length} failing
-                    {lockedCount > 0 && ` · ${lockedCount} already locked`}
-                    {unevaluatedFilteredCount > 0 && ` · ${unevaluatedFilteredCount} not evaluated`}
-                  </>
-                ) : (
-                  <>No eval results found for this agent's test cases. Run an eval first.</>
-                )}
+                {lockedCount > 0 && `${lockedCount} already locked · `}
+                {filteredCases.length - lockedCount} unlocked
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -413,23 +478,25 @@ export default function TestCaseAgentList() {
                 </button>
               )}
               <button
-                onClick={() => bulkLock(passingUnlockedCases.map((tc) => tc.id), "protect")}
-                disabled={bulkLocking || passingUnlockedCases.length === 0}
+                onClick={smartLockFromEval}
+                disabled={bulkLocking || allLocked}
                 className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
-                <Shield className="h-3 w-3 text-success" />
-                Must Hold Passing ({passingUnlockedCases.length})
-              </button>
-              <button
-                onClick={() => bulkLock(failingUnlockedCases.map((tc) => tc.id), "track")}
-                disabled={bulkLocking || failingUnlockedCases.length === 0}
-                className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-              >
-                <Target className="h-3 w-3 text-primary" />
-                Watch Failing ({failingUnlockedCases.length})
+                <Lock className="h-3 w-3" />
+                {allLocked ? "All cases locked" : "Lock from Eval Results"}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {smartLockSummary && !bulkLocking && (
+        <div className="mb-3 flex items-center gap-2 rounded border border-success/30 bg-success/10 px-3 py-2.5">
+          <CheckSquare className="h-3.5 w-3.5 text-success" />
+          <span className="text-xs font-medium text-foreground">{smartLockSummary}</span>
+          <button onClick={() => setSmartLockSummary(null)} className="ml-auto text-muted-foreground hover:text-foreground">
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
 
