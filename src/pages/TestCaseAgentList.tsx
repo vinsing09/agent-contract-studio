@@ -342,7 +342,77 @@ export default function TestCaseAgentList() {
     }
   };
 
-  if (loading) {
+  const smartLockFromEval = async () => {
+    if (selectedAgentId === "all" || !selectedAgentId) return;
+    setBulkLocking(true);
+    setError("");
+    setSmartLockSummary(null);
+
+    try {
+      const runs = await api.getEvalRuns();
+      const agentRuns = runs
+        .filter((r) => r.agent_id === selectedAgentId)
+        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+
+      if (agentRuns.length === 0) {
+        setError("No eval runs found for this agent. Run an eval first.");
+        setBulkLocking(false);
+        return;
+      }
+
+      const results = await api.getEvalRunResults(agentRuns[0].id);
+      const unlockedCases = filteredCases.filter((tc) => !tc.locked);
+      const total = unlockedCases.length;
+      let mustHold = 0;
+      let watching = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (let i = 0; i < unlockedCases.length; i++) {
+        const tc = unlockedCases[i];
+        setBulkProgress({ current: i + 1, total, label: "Locking cases" });
+
+        const caseResults = results.filter(
+          (r) => r.test_case_id === tc.id && ((r as any).result_type === "deterministic" || !(r as any).result_type)
+        );
+
+        if (caseResults.length === 0) {
+          skipped++;
+          continue;
+        }
+
+        const allPassed = caseResults.every((r) => r.passed === true);
+        const intent: "protect" | "track" = allPassed ? "protect" : "track";
+
+        try {
+          await api.lockTestCaseWithIntent(tc.id, intent);
+          setAllTestCases((prev) =>
+            prev.map((item) =>
+              item.id === tc.id ? { ...item, locked: true, locked_at_pass: allPassed ? 1 : 0 } : item
+            )
+          );
+          if (allPassed) mustHold++;
+          else watching++;
+        } catch {
+          failed++;
+        }
+      }
+
+      const locked = mustHold + watching;
+      const parts = [`Locked ${locked} case${locked !== 1 ? "s" : ""}`];
+      if (mustHold > 0) parts.push(`${mustHold} Must Hold`);
+      if (watching > 0) parts.push(`${watching} Watching`);
+      if (skipped > 0) parts.push(`${skipped} skipped`);
+      if (failed > 0) parts.push(`${failed} failed`);
+      setSmartLockSummary(parts.join(" — "));
+    } catch (err: any) {
+      setError(parseApiError(err));
+    } finally {
+      setBulkLocking(false);
+      setSelectedIds(new Set());
+    }
+  };
+
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
