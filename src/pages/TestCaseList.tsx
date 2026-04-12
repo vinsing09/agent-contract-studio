@@ -167,8 +167,7 @@ export default function TestCaseList() {
       );
       setLockModal(null);
     } catch (err: any) {
-      // Parse error message for 400 responses
-      setLockError(err.message || "Failed to lock test case");
+      setLockError(parseApiError(err));
     } finally {
       setLockingCase(false);
     }

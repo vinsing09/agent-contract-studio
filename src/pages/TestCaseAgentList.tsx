@@ -113,7 +113,7 @@ export default function TestCaseAgentList() {
       );
       setLockModal(null);
     } catch (err: any) {
-      setLockError(err.message || "Failed to lock test case");
+      setLockError(parseApiError(err));
     } finally {
       setLockingCase(false);
     }

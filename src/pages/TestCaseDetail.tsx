@@ -91,7 +91,7 @@ export default function TestCaseDetailPage() {
       }
       setTc({ ...tc, locked: !tc.locked });
     } catch (err: any) {
-      setLockError(err.message);
+      setLockError(parseApiError(err));
     } finally {
       setLockLoading(false);
     }
