@@ -171,7 +171,7 @@ export default function TestCaseDetailPage() {
           {tc.locked && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-primary/15 text-primary border border-primary/30 rounded-sm shrink-0">
               <Lock className="w-3 h-3" />
-              Locked
+              Spec Case
             </span>
           )}
         </div>
@@ -179,7 +179,7 @@ export default function TestCaseDetailPage() {
           {tc.locked ? (
             <>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
-                🔒 Locked
+                🔒 Spec Case
               </span>
               <button
                 onClick={handleToggleLock}

@@ -46,7 +46,7 @@ export function AppSidebar() {
       active: path === "/agents" || path === "/agents/new" || (!!agentMatch && !path.includes("/test-cases")),
     },
     {
-      label: "Regression",
+      label: "Behavioral Check",
       path: "/regression",
       icon: ShieldCheck,
       active: path.startsWith("/regression"),

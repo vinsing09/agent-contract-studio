@@ -418,7 +418,7 @@ export default function TestCaseAgentList() {
                 className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 <Shield className="h-3 w-3 text-success" />
-                Protect Passing ({passingUnlockedCases.length})
+                Must Hold Passing ({passingUnlockedCases.length})
               </button>
               <button
                 onClick={() => bulkLock(failingUnlockedCases.map((tc) => tc.id), "track")}
@@ -426,7 +426,7 @@ export default function TestCaseAgentList() {
                 className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 <Target className="h-3 w-3 text-primary" />
-                Track Failing ({failingUnlockedCases.length})
+                Watch Failing ({failingUnlockedCases.length})
               </button>
             </div>
           </div>
@@ -461,7 +461,7 @@ export default function TestCaseAgentList() {
               className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               <Shield className="h-3 w-3 text-success" />
-              Lock as Protect
+              Lock as Must Hold
             </button>
             <button
               onClick={() => bulkLock(selectedLockableCases.map((tc) => tc.id), "track", selectedSkippedCount)}
@@ -469,7 +469,7 @@ export default function TestCaseAgentList() {
               className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               <Target className="h-3 w-3 text-primary" />
-              Lock as Track
+              Lock as Watch
             </button>
             <button
               onClick={() => bulkUnlock(selectedLockedCases.map((tc) => tc.id))}
@@ -561,24 +561,24 @@ export default function TestCaseAgentList() {
                       {(() => {
                         if (!tc.locked) return <span className="text-muted-foreground/50">—</span>;
                         const lap = (tc as any).locked_at_pass;
-                        if (lap === true || lap === 1) {
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">
-                              <Shield className="w-3 h-3" /> Protected
-                            </span>
-                          );
-                        }
-                        if (lap === false || lap === 0) {
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
-                              <Target className="w-3 h-3" /> Tracking
-                            </span>
-                          );
-                        }
-                        return (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground border border-border rounded">
-                            <Lock className="w-3 h-3" /> Locked
-                          </span>
+                        if (lap === 1) {
+                           return (
+                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">
+                               <Shield className="w-3 h-3" /> Must Hold
+                             </span>
+                           );
+                         }
+                         if (lap === 0) {
+                           return (
+                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
+                               <Target className="w-3 h-3" /> Watching
+                             </span>
+                           );
+                         }
+                         return (
+                           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground border border-border rounded">
+                             <Lock className="w-3 h-3" /> Spec Case
+                           </span>
                         );
                       })()}
                     </td>
@@ -646,10 +646,10 @@ export default function TestCaseAgentList() {
                   <Shield className={`mt-0.5 h-5 w-5 shrink-0 ${lockIntent === "protect" ? "text-success" : "text-muted-foreground"}`} />
                   <div>
                     <p className={`text-sm font-medium ${lockIntent === "protect" ? "text-success" : "text-foreground"}`}>
-                      Protect this behavior
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      This case is currently passing. Lock it to prevent regression — any future failure will block deployment.
+                       Must Hold
+                     </p>
+                     <p className="mt-1 text-xs text-muted-foreground">
+                       This case is currently passing. Lock it to prevent regressions — any future failure will block deployment.
                     </p>
                   </div>
                 </div>
@@ -667,10 +667,10 @@ export default function TestCaseAgentList() {
                   <Target className={`mt-0.5 h-5 w-5 shrink-0 ${lockIntent === "track" ? "text-primary" : "text-muted-foreground"}`} />
                   <div>
                     <p className={`text-sm font-medium ${lockIntent === "track" ? "text-primary" : "text-foreground"}`}>
-                      Track improvement
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      This case is currently failing. Lock it to monitor progress — improvement will be celebrated, not blocking.
+                       Watch
+                     </p>
+                     <p className="mt-1 text-xs text-muted-foreground">
+                       This case is currently failing. Lock it to monitor progress — improvement will be celebrated, not blocking.
                     </p>
                   </div>
                 </div>
@@ -713,13 +713,13 @@ export default function TestCaseAgentList() {
             </div>
             <p className="mb-5 text-sm text-muted-foreground">
               {deleteModal.locked
-                ? "This is a regression case. Deleting it will remove it from your regression suite."
-                : "Are you sure you want to delete this test case? This cannot be undone."}
-            </p>
-            {deleteModal.locked && (
-              <div className="mb-3 flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
-                <Lock className="h-3 w-3" />
-                This test case is locked as a regression case
+                 ? "This is a spec case. Deleting it will remove it from your behavioral spec."
+                 : "Are you sure you want to delete this test case? This cannot be undone."}
+             </p>
+             {deleteModal.locked && (
+               <div className="mb-3 flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
+                 <Lock className="h-3 w-3" />
+                 This test case is locked as a spec case
               </div>
             )}
             <div className="flex justify-end gap-2">

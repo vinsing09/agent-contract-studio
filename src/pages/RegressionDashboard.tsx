@@ -73,7 +73,6 @@ export default function RegressionDashboard() {
     api.getAgentVersions(selectedAgentId)
       .then(async (v) => {
         setVersions(v);
-        setBaselineVersionId(null);
         setChallengerVersionId(v.length > 0 ? v[v.length - 1].id : null);
         setResult(null);
 
@@ -90,6 +89,17 @@ export default function RegressionDashboard() {
           })
         );
         setLockedCounts(counts);
+
+        // Auto-select baseline: version with most locked cases
+        let bestBaselineId: string | null = null;
+        let bestCount = 0;
+        for (const ver of v) {
+          if ((counts[ver.id] || 0) > bestCount) {
+            bestCount = counts[ver.id];
+            bestBaselineId = ver.id;
+          }
+        }
+        setBaselineVersionId(bestBaselineId);
       })
       .catch((err) => setError(parseApiError(err)));
   }, [selectedAgentId]);
@@ -173,7 +183,7 @@ export default function RegressionDashboard() {
   return (
     <div className="px-6 py-6 animate-fade-in max-w-4xl mx-auto">
       {/* SECTION 1 — Run Configuration */}
-      <h1 className="text-lg font-semibold text-foreground mb-1">Regression Run</h1>
+      <h1 className="text-lg font-semibold text-foreground mb-1">Version Comparison</h1>
       <p className="text-sm text-muted-foreground mb-5">
         Test a new version against locked cases from a baseline version.
       </p>
@@ -204,7 +214,7 @@ export default function RegressionDashboard() {
         {/* Baseline */}
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">
-            Baseline (locked cases from)
+            Baseline version (your behavioral spec)
           </label>
           <select
             className="w-full px-3 py-2 text-sm bg-card border border-border rounded text-foreground disabled:opacity-50"
@@ -233,7 +243,7 @@ export default function RegressionDashboard() {
         {/* Challenger */}
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">
-            Challenger (version to test)
+            Challenger version (what you're testing)
           </label>
           <select
             className="w-full px-3 py-2 text-sm bg-card border border-border rounded text-foreground disabled:opacity-50"
@@ -266,7 +276,7 @@ export default function RegressionDashboard() {
         className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.98]"
       >
         {running && <Loader2 className="w-4 h-4 animate-spin" />}
-        {running ? "Running…" : "Run Regression"}
+        {running ? "Running…" : "Run Comparison"}
       </button>
 
       {/* SECTION 2 — Results */}
@@ -275,20 +285,20 @@ export default function RegressionDashboard() {
           {/* Status banner */}
           {result.status === "PASSED" ? (
             <div className="mb-4 px-4 py-3 text-sm font-medium rounded border bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
-              ✓ All regression cases passed
+              ✓ All cases held
             </div>
           ) : (
             <div className="mb-4 px-4 py-3 text-sm font-medium rounded border bg-destructive/10 border-destructive/30 text-destructive">
-              ✗ Regression blocked — {result.summary.regression_count} case(s) failed
+              ✗ Comparison blocked — {result.summary.regression_count} case(s) broke
             </div>
           )}
 
           {/* Summary counts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
-            <SummaryCard label="STABLE" count={result.summary.stable_count} color="emerald" />
-            <SummaryCard label="REGRESSION" count={result.summary.regression_count} color="red" />
-            <SummaryCard label="IMPROVEMENT" count={result.summary.improvement_count} color="blue" />
-            <SummaryCard label="NO PROGRESS" count={result.summary.no_progress_count} color="muted" />
+            <SummaryCard label="HELD" count={result.summary.stable_count} color="emerald" />
+            <SummaryCard label="BROKE" count={result.summary.regression_count} color="red" />
+            <SummaryCard label="IMPROVED" count={result.summary.improvement_count} color="blue" />
+            <SummaryCard label="NO CHANGE" count={result.summary.no_progress_count} color="muted" />
           </div>
 
           {/* Swim lanes */}
@@ -296,7 +306,7 @@ export default function RegressionDashboard() {
             {result.summary.stable_count > 0 && (
               <div className="bg-card border border-border rounded border-l-2 border-l-emerald-500 p-4">
                 <h3 className="text-sm font-semibold text-emerald-400">
-                  STABLE — {result.summary.stable_count} cases protected
+                  HELD — {result.summary.stable_count} cases protected
                 </h3>
               </div>
             )}
@@ -304,7 +314,7 @@ export default function RegressionDashboard() {
             {result.summary.regression_count > 0 && (
               <div className="bg-card border border-border rounded border-l-2 border-l-destructive p-4">
                 <h3 className="text-sm font-semibold text-destructive mb-3">
-                  REGRESSION — {result.summary.regression_count} cases broke
+                  BROKE — {result.summary.regression_count} cases broke
                 </h3>
                 <div className="space-y-2">
                   {result.regressions.map((r) => {
@@ -341,7 +351,7 @@ export default function RegressionDashboard() {
             {result.summary.improvement_count > 0 && (
               <div className="bg-card border border-border rounded border-l-2 border-l-blue-500 p-4">
                 <h3 className="text-sm font-semibold text-blue-400 mb-3">
-                  IMPROVEMENT — {result.summary.improvement_count} cases now passing
+                  IMPROVED — {result.summary.improvement_count} cases now passing
                 </h3>
                 <div className="space-y-1.5">
                   {result.improvements.map((imp) => (
@@ -357,7 +367,7 @@ export default function RegressionDashboard() {
             {result.summary.no_progress_count > 0 && (
               <div className="bg-card border border-border rounded border-l-2 border-l-muted-foreground/30 p-4">
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3">
-                  NO PROGRESS — {result.summary.no_progress_count} cases still failing
+                  NO CHANGE — {result.summary.no_progress_count} cases still failing
                 </h3>
                 {result.no_progress && result.no_progress.length > 0 && (
                   <div className="space-y-1.5">

@@ -540,7 +540,7 @@ export default function AgentDetail() {
               return (
                 <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
                   <span className="text-primary font-bold">→</span>
-                  Lock cases to build your regression suite —{" "}
+                  Lock cases to build your behavioral spec —{" "}
                   <Link to={`/test-cases?agent=${id}`} className="text-primary hover:underline">
                     Go to Test Cases →
                   </Link>
@@ -551,9 +551,9 @@ export default function AgentDetail() {
               return (
                 <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
                   <span className="text-primary font-bold">→</span>
-                  Ready for regression — test a new version —{" "}
+                  Ready for behavioral check — test a new version —{" "}
                   <Link to="/regression" className="text-primary hover:underline">
-                    Go to Regression →
+                    Run Version Comparison →
                   </Link>
                 </div>
               );
@@ -624,7 +624,7 @@ export default function AgentDetail() {
               <h3 className="text-base font-semibold text-foreground">Delete Agent</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-5">
-              This will delete all test cases, eval runs, and regression locks for this agent. This cannot be undone.
+              This will delete all test cases, eval runs, and spec case locks for this agent. This cannot be undone.
             </p>
             {deleteError && (
               <div className="mb-3 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive">
