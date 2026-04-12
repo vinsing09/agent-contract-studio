@@ -30,7 +30,14 @@ type EvalStatus = "PASS" | "FAIL";
 function buildStatusByCase(results: EvalResult[]): Record<string, EvalStatus> {
   const statusByCase: Record<string, EvalStatus> = {};
 
-  for (const result of results) {
+  // Only consider deterministic (user-defined) assertions for pass/fail status.
+  // Semantic judge assertions (hallucination, goal_achieved, etc.) are informational
+  // and should not block bulk lock actions.
+  const deterministicResults = results.filter(
+    (r) => r.result_type === "deterministic" || !r.result_type
+  );
+
+  for (const result of deterministicResults) {
     const testCaseId = result.test_case_id;
     if (!testCaseId) continue;
 
