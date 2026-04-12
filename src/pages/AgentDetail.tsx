@@ -546,7 +546,7 @@ export default function AgentDetail() {
               return (
                 <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
                   <span className="text-primary font-bold">→</span>
-                  <Link to={`/agents/${id}/test-cases`} className="text-primary hover:underline">
+                  <Link to={`/test-cases?agent=${id}`} className="text-primary hover:underline">
                     Go to Test Cases to review results and lock cases for regression protection
                   </Link>
                 </div>
@@ -578,18 +578,23 @@ export default function AgentDetail() {
                 "Generate Contract"
               )}
             </button>
-            <button
-              onClick={handleGenerateTests}
-              disabled={!hasContract || generatingTests || !activeVersion}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
-            >
-              {generatingTests && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {hasTests ? (
-                <><CheckCircle2 className="w-3.5 h-3.5 text-success" /> {testCases.length} Test Cases</>
-              ) : (
-                "Generate Test Cases"
-              )}
-            </button>
+            {hasTests ? (
+              <Link
+                to={`/test-cases?agent=${id}`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97]"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-success" /> {testCases.length} Test Cases
+              </Link>
+            ) : (
+              <button
+                onClick={handleGenerateTests}
+                disabled={!hasContract || generatingTests || !activeVersion}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
+              >
+                {generatingTests && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Generate Test Cases
+              </button>
+            )}
             <button
               onClick={handleRunEval}
               disabled={!hasTests || runningEval || !activeVersion}
