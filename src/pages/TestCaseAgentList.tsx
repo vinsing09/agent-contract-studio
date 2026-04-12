@@ -13,11 +13,12 @@ interface AgentWithVersion {
 
 export default function TestCaseAgentList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [agents, setAgents] = useState<AgentWithVersion[]>([]);
   const [allTestCases, setAllTestCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedAgentId, setSelectedAgentId] = useState<string>("all");
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(searchParams.get("agent") || "all");
 
   // Lock intent modal state
   const [lockModal, setLockModal] = useState<any | null>(null);
