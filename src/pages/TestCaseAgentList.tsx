@@ -163,8 +163,12 @@ export default function TestCaseAgentList() {
 
   const evaluatedFilteredCases = filteredCases.filter((tc) => !!evalStatusByCase[tc.id]);
   const unevaluatedFilteredCount = filteredCases.length - evaluatedFilteredCases.length;
+  const lockedCount = filteredCases.filter((tc) => tc.locked).length;
   const passingUnlockedCases = filteredCases.filter((tc) => !tc.locked && evalStatusByCase[tc.id] === "PASS");
   const failingUnlockedCases = filteredCases.filter((tc) => !tc.locked && evalStatusByCase[tc.id] === "FAIL");
+  const passingAllCases = filteredCases.filter((tc) => evalStatusByCase[tc.id] === "PASS");
+  const failingAllCases = filteredCases.filter((tc) => evalStatusByCase[tc.id] === "FAIL");
+  const allLocked = lockedCount === filteredCases.length && filteredCases.length > 0;
   const showBulkBar = isAgentFiltered && !!latestEvalRun;
 
   const selectedLockableCases = selectedCases.filter((tc) => !tc.locked && !!evalStatusByCase[tc.id]);
@@ -386,18 +390,35 @@ export default function TestCaseAgentList() {
             <div>
               <p className="text-sm font-medium text-foreground">Bulk Lock</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {passingUnlockedCases.length} passing ready for Protect • {failingUnlockedCases.length} failing ready for Track
-                {unevaluatedFilteredCount > 0 ? ` • ${unevaluatedFilteredCount} not in the latest eval yet` : ""}
+                {evaluatedFilteredCases.length > 0 ? (
+                  <>
+                    Eval results: {passingAllCases.length} passing, {failingAllCases.length} failing
+                    {lockedCount > 0 && ` · ${lockedCount} already locked`}
+                    {unevaluatedFilteredCount > 0 && ` · ${unevaluatedFilteredCount} not evaluated`}
+                  </>
+                ) : (
+                  <>No eval results found for this agent's test cases. Run an eval first.</>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {lockedCount > 0 && (
+                <button
+                  onClick={() => bulkUnlock(filteredCases.filter((tc) => tc.locked).map((tc) => tc.id))}
+                  disabled={bulkLocking}
+                  className="inline-flex items-center gap-1.5 rounded border border-destructive/30 px-2.5 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                >
+                  <Unlock className="h-3 w-3" />
+                  Unlock All ({lockedCount})
+                </button>
+              )}
               <button
                 onClick={() => bulkLock(passingUnlockedCases.map((tc) => tc.id), "protect")}
                 disabled={bulkLocking || passingUnlockedCases.length === 0}
                 className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 <Shield className="h-3 w-3 text-success" />
-                Lock all passing as Protect
+                Protect Passing ({passingUnlockedCases.length})
               </button>
               <button
                 onClick={() => bulkLock(failingUnlockedCases.map((tc) => tc.id), "track")}
@@ -405,7 +426,7 @@ export default function TestCaseAgentList() {
                 className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 <Target className="h-3 w-3 text-primary" />
-                Lock all failing as Track
+                Track Failing ({failingUnlockedCases.length})
               </button>
             </div>
           </div>
