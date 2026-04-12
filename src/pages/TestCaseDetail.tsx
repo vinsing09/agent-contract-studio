@@ -231,7 +231,7 @@ export default function TestCaseDetailPage() {
                   </div>
                 ))}
               </div>
-            )
+            )}
           </section>
 
           <section>
