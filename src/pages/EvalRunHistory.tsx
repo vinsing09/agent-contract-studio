@@ -3,8 +3,8 @@ import { api, type EvalRun, type EvalResult, type Agent, type AgentVersion } fro
 import { parseApiError } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui-shared";
 import {
-  Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight,
-  Trash2, ArrowLeft, CheckCircle2, XCircle, Clock
+  Loader2, AlertCircle, PlayCircle,
+  Trash2, ArrowLeft, CheckCircle2, Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -42,6 +42,12 @@ function groupByTestCase(results: any[]): Record<string, any[]> {
   return groups;
 }
 
+function computeAvgLatency(results: any[]): number | null {
+  const latencies = results.filter((r: any) => r.latency_ms != null).map((r: any) => r.latency_ms);
+  if (latencies.length === 0) return null;
+  return Math.round(latencies.reduce((a: number, b: number) => a + b, 0) / latencies.length);
+}
+
 type View = { type: "list" } | { type: "detail"; runId: string };
 
 export default function EvalRunHistory() {
@@ -50,7 +56,7 @@ export default function EvalRunHistory() {
   const [error, setError] = useState("");
   const [agentNames, setAgentNames] = useState<Record<string, string>>({});
   const [versionMap, setVersionMap] = useState<Record<string, number>>({});
-  const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number }>>({});
+  const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number; avgLatency: number | null }>>({});
   const [deleteModal, setDeleteModal] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -69,7 +75,6 @@ export default function EvalRunHistory() {
       for (const a of agents) nameMap[a.id] = a.name;
       setAgentNames(nameMap);
 
-      // Build version map from all agents
       return Promise.all(
         agents.map((a) =>
           api.getAgentVersions(a.id).then((versions) => {
@@ -87,24 +92,16 @@ export default function EvalRunHistory() {
 
     const runsPromise = api.getEvalRuns().then(async (fetchedRuns) => {
       setRuns(fetchedRuns);
-      const rates: Record<string, { passed: number; total: number }> = {};
+      const rates: Record<string, { passed: number; total: number; avgLatency: number | null }> = {};
       await Promise.all(
         fetchedRuns.map(async (run) => {
           try {
-            // Try to get summary from the run itself first
-            const r = run as any;
-            if (r.summary_json) {
-              rates[run.id] = {
-                passed: r.summary_json.passed ?? 0,
-                total: r.summary_json.total ?? 0,
-              };
-            } else {
-              const results = await api.getEvalRunResults(run.id);
-              const passed = results.filter((res) => res.passed === true).length;
-              rates[run.id] = { passed, total: results.length };
-            }
+            const results = await api.getEvalRunResults(run.id);
+            const passed = results.filter((res) => res.passed === true).length;
+            const avgLat = computeAvgLatency(results);
+            rates[run.id] = { passed, total: results.length, avgLatency: avgLat };
           } catch {
-            rates[run.id] = { passed: 0, total: 0 };
+            rates[run.id] = { passed: 0, total: 0, avgLatency: null };
           }
         })
       );
@@ -124,7 +121,6 @@ export default function EvalRunHistory() {
       const data = await api.getEvalRunDetail(runId);
       setDetailData(data);
 
-      // Build scenario map from test_case_ids in results
       const tcIds = new Set((data.results ?? []).map((r: any) => r.test_case_id).filter(Boolean));
       const scenarios: Record<string, string> = {};
       await Promise.all(
@@ -185,7 +181,6 @@ export default function EvalRunHistory() {
   // ─── DETAIL VIEW ───
   if (view.type === "detail") {
     const run = runs.find((r) => r.id === view.runId);
-    const runAny = run as any;
 
     if (detailLoading) {
       return (
@@ -209,13 +204,17 @@ export default function EvalRunHistory() {
     const passed = summary.passed ?? results.filter((r: any) => r.passed === true).length;
     const failed = summary.failed ?? results.filter((r: any) => r.passed === false).length;
     const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
-    const avgLatency = (runAny?.summary_json?.avg_latency_ms) ?? (evalRun?.summary_json?.avg_latency_ms) ?? null;
-    const versionId = evalRun?.agent_version_id ?? runAny?.agent_version_id;
+    const avgLatency = computeAvgLatency(results);
+    const versionId = evalRun?.agent_version_id;
     const versionNum = versionId ? versionMap[versionId] : null;
     const agentId = evalRun?.agent_id ?? run?.agent_id;
     const agentName = agentId ? agentNames[agentId] : "Unknown";
     const runType = evalRun?.run_type ?? run?.run_type ?? "full";
     const status = evalRun?.status ?? run?.status;
+
+    // Safely extract deterministic/semantic counts from summary
+    const detCount = summary.deterministic;
+    const semCount = summary.semantic;
 
     return (
       <div className="px-6 py-6 animate-fade-in">
@@ -251,7 +250,7 @@ export default function EvalRunHistory() {
             {avgLatency != null && (
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{formatLatency(Math.round(avgLatency))} avg</span>
+                <span className="text-sm text-muted-foreground">{formatLatency(avgLatency)} avg</span>
               </div>
             )}
             {evalRun?.started_at && (
@@ -261,8 +260,12 @@ export default function EvalRunHistory() {
 
           {/* Summary breakdown */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            {summary.deterministic != null && <span>Deterministic: {summary.deterministic}</span>}
-            {summary.semantic != null && <span>Semantic: {summary.semantic}</span>}
+            {detCount != null && (
+              <span>Deterministic: {typeof detCount === "object" ? `${detCount.passed}/${detCount.total}` : detCount}</span>
+            )}
+            {semCount != null && (
+              <span>Semantic: {typeof semCount === "object" ? `${semCount.passed}/${semCount.total}` : semCount}</span>
+            )}
             {failed > 0 && <span className="text-destructive">Failed: {failed}</span>}
           </div>
         </div>
@@ -288,7 +291,6 @@ export default function EvalRunHistory() {
                   const scenario = scenarioMap[tcId] || assertions[0]?.scenario || `Test ${tcId.slice(0, 10)}…`;
                   return (
                     <React.Fragment key={tcId}>
-                      {/* Group header */}
                       <tr className="border-b border-border bg-muted/20">
                         <td colSpan={6} className="px-3 py-2">
                           <span className="text-xs font-medium text-foreground">{scenario}</span>
@@ -313,7 +315,7 @@ export default function EvalRunHistory() {
                               </span>
                             </td>
                             <td className="px-3 py-2 text-xs font-mono text-foreground">
-                              {r.assertion_id?.slice(0, 12) ?? "—"}
+                              {r.assertion_id ?? "—"}
                             </td>
                             <td className="px-3 py-2">
                               <PassedBadge passed={r.passed} />
@@ -374,7 +376,6 @@ export default function EvalRunHistory() {
               <tr className="border-b border-border bg-muted/30">
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Run</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Version</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass Rate</th>
@@ -385,14 +386,10 @@ export default function EvalRunHistory() {
             </thead>
             <tbody>
               {displayRuns.map((run) => {
-                const runAny = run as any;
                 const rate = passRates[run.id];
                 const pct = rate && rate.total > 0 ? Math.round((rate.passed / rate.total) * 100) : 0;
                 const barColor = rate && rate.total > 0 && rate.passed === rate.total ? "bg-success" : "bg-destructive";
                 const runNum = runNumberMap[run.id];
-                const versionId = runAny.agent_version_id;
-                const versionNum = versionId ? versionMap[versionId] : null;
-                const avgLatency = runAny.summary_json?.avg_latency_ms;
                 const typeBadge = run.run_type === "full"
                   ? "bg-primary/15 text-primary border-primary/30"
                   : "bg-purple-500/15 text-purple-400 border-purple-500/30";
@@ -409,13 +406,6 @@ export default function EvalRunHistory() {
                     </td>
                     <td className="px-3 py-2.5 text-foreground">
                       {agentNames[run.agent_id] || run.agent_name || run.agent_id.slice(0, 8)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {versionNum != null ? (
-                        <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">v{versionNum}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${typeBadge}`}>
@@ -436,7 +426,7 @@ export default function EvalRunHistory() {
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground">
-                      {avgLatency != null ? formatLatency(Math.round(avgLatency)) : "—"}
+                      {rate?.avgLatency != null ? formatLatency(rate.avgLatency) : "—"}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {run.started_at ? formatDate(run.started_at) : "—"}
