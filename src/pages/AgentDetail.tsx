@@ -691,7 +691,7 @@ export default function AgentDetail() {
 
           {/* Improvement Panel */}
           {showImprovements && (
-            <div className="border border-border rounded bg-card p-4 mt-4 space-y-4">
+            <div className="border border-border rounded bg-card p-4 mt-4 space-y-4 min-w-0 overflow-hidden">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Suggested Improvements</h3>
