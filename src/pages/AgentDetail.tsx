@@ -43,6 +43,15 @@ export default function AgentDetail() {
   const [newVersionError, setNewVersionError] = useState("");
   const [switchingVersion, setSwitchingVersion] = useState(false);
 
+  const [showImprovements, setShowImprovements] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [acceptedSuggestionIds, setAcceptedSuggestionIds] = useState<Set<string>>(new Set());
+  const [rejectedSuggestionIds, setRejectedSuggestionIds] = useState<Set<string>>(new Set());
+  const [reviewedSuggestionIds, setReviewedSuggestionIds] = useState<Set<string>>(new Set());
+  const [applyingFixes, setApplyingFixes] = useState(false);
+  const [improvementError, setImprovementError] = useState("");
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
