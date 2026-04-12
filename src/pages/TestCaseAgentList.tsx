@@ -782,13 +782,13 @@ export default function TestCaseAgentList() {
             </div>
             <p className="mb-5 text-sm text-muted-foreground">
               {deleteModal.locked
-                 ? "This is a spec case. Deleting it will remove it from your behavioral spec."
+                 ? "This is a locked test case. Deleting it will remove it from your behavioral spec."
                  : "Are you sure you want to delete this test case? This cannot be undone."}
              </p>
              {deleteModal.locked && (
                <div className="mb-3 flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
                  <Lock className="h-3 w-3" />
-                 This test case is locked as a spec case
+                 This test case is locked
               </div>
             )}
             <div className="flex justify-end gap-2">
