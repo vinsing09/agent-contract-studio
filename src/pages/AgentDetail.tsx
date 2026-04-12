@@ -588,6 +588,82 @@ export default function AgentDetail() {
           </div>
         </div>
       )}
+
+      {/* New Version Drawer */}
+      {showNewVersionDrawer && (
+        <div className="fixed inset-0 z-50" onClick={() => setShowNewVersionDrawer(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className="absolute right-0 top-0 h-full w-[420px] max-w-full bg-card border-l border-border p-6 overflow-y-auto transform transition-transform duration-200 translate-x-0 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-semibold text-foreground">New Version</h3>
+              <button onClick={() => setShowNewVersionDrawer(false)} className="p-1 hover:bg-muted rounded transition-colors">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">
+              Changes will create a new version. The current version stays unchanged.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">What are you changing?</label>
+                <input
+                  value={newVersionLabel}
+                  onChange={(e) => setNewVersionLabel(e.target.value)}
+                  placeholder="e.g. Fixed escalation path"
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">System Prompt</label>
+                <textarea
+                  value={newVersionPrompt}
+                  onChange={(e) => setNewVersionPrompt(e.target.value)}
+                  rows={10}
+                  className="w-full px-3 py-2 text-sm font-mono bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">Tool Schemas</label>
+                <p className="text-[10px] text-muted-foreground mb-1">Leave unchanged to keep current tool schemas</p>
+                <textarea
+                  value={newVersionSchemas}
+                  onChange={(e) => setNewVersionSchemas(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm font-mono bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                />
+              </div>
+
+              {newVersionError && (
+                <div className="px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {newVersionError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowNewVersionDrawer(false)}
+                  className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateVersion}
+                  disabled={!newVersionLabel.trim() || creatingVersion}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingVersion && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Create Version
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
