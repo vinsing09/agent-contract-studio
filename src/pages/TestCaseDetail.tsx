@@ -40,19 +40,19 @@ export default function TestCaseDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Resolve agentId from URL or from test case data
+  const resolvedAgentId = agentId || (tc as any)?.agent_id;
+
   useEffect(() => {
-    if (!agentId) return;
-    api.getAgent(agentId)
+    if (!resolvedAgentId) return;
+    api.getAgent(resolvedAgentId)
       .then((agent) => setAgentName(agent.name))
       .catch(() => {});
-  }, [agentId]);
+  }, [resolvedAgentId]);
 
   // Fetch latest eval run results for this test case
   useEffect(() => {
-    if (!id) return;
-    // Use agentId from URL, or from test case data
-    const resolvedAgentId = agentId;
-    if (!resolvedAgentId) return;
+    if (!id || !resolvedAgentId) return;
 
     setEvalLoading(true);
     api.getEvalRuns()
@@ -70,7 +70,7 @@ export default function TestCaseDetailPage() {
       })
       .catch(() => {})
       .finally(() => setEvalLoading(false));
-  }, [agentId, id]);
+  }, [resolvedAgentId, id]);
 
   const toggleCall = (i: number) => {
     setExpandedCalls((prev) => {
@@ -138,17 +138,17 @@ export default function TestCaseDetailPage() {
           <BreadcrumbItem>
             <BreadcrumbLink asChild><Link to="/agents">Agents</Link></BreadcrumbLink>
           </BreadcrumbItem>
-          {agentId && (
+          {resolvedAgentId && (
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink asChild><Link to={`/agents/${agentId}`}>{agentName || "Agent"}</Link></BreadcrumbLink>
+                <BreadcrumbLink asChild><Link to={`/agents/${resolvedAgentId}`}>{agentName || "Agent"}</Link></BreadcrumbLink>
               </BreadcrumbItem>
             </>
           )}
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink asChild><Link to={agentId ? `/test-cases?agent=${agentId}` : "/test-cases"}>Test Cases</Link></BreadcrumbLink>
+            <BreadcrumbLink asChild><Link to={resolvedAgentId ? `/test-cases?agent=${resolvedAgentId}` : "/test-cases"}>Test Cases</Link></BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -156,13 +156,22 @@ export default function TestCaseDetailPage() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+      {resolvedAgentId && (
+        <Link
+          to={`/agents/${resolvedAgentId}`}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to {agentName || "Agent"}
+        </Link>
+      )}
       <div className="flex items-start justify-between mb-1 gap-4">
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
           {tc.locked && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-primary/15 text-primary border border-primary/30 rounded-sm shrink-0">
               <Lock className="w-3 h-3" />
-              Regression Case
+              Locked
             </span>
           )}
         </div>
@@ -170,7 +179,7 @@ export default function TestCaseDetailPage() {
           {tc.locked ? (
             <>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
-                🔒 Regression Case
+                🔒 Locked
               </span>
               <button
                 onClick={handleToggleLock}
@@ -187,7 +196,7 @@ export default function TestCaseDetailPage() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-primary/30 text-primary rounded hover:bg-primary/10 transition-colors disabled:opacity-50 active:scale-[0.97]"
             >
               {lockLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Lock className="w-3 h-3" />}
-              Lock as Regression Case
+              Lock
             </button>
           )}
         </div>
@@ -375,9 +384,9 @@ export default function TestCaseDetailPage() {
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
                 <Inbox className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm">Run eval to see results</p>
-                {agentId && (
-                  <Link to={`/agents/${agentId}`} className="text-xs text-primary hover:underline mt-2">
-                    ← Back to agent to run eval
+                {resolvedAgentId && (
+                  <Link to={`/agents/${resolvedAgentId}`} className="text-xs text-primary hover:underline mt-2">
+                    ← Back to {agentName || "agent"} to run eval
                   </Link>
                 )}
               </div>
