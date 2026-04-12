@@ -163,8 +163,12 @@ export default function TestCaseAgentList() {
 
   const evaluatedFilteredCases = filteredCases.filter((tc) => !!evalStatusByCase[tc.id]);
   const unevaluatedFilteredCount = filteredCases.length - evaluatedFilteredCases.length;
+  const lockedCount = filteredCases.filter((tc) => tc.locked).length;
   const passingUnlockedCases = filteredCases.filter((tc) => !tc.locked && evalStatusByCase[tc.id] === "PASS");
   const failingUnlockedCases = filteredCases.filter((tc) => !tc.locked && evalStatusByCase[tc.id] === "FAIL");
+  const passingAllCases = filteredCases.filter((tc) => evalStatusByCase[tc.id] === "PASS");
+  const failingAllCases = filteredCases.filter((tc) => evalStatusByCase[tc.id] === "FAIL");
+  const allLocked = lockedCount === filteredCases.length && filteredCases.length > 0;
   const showBulkBar = isAgentFiltered && !!latestEvalRun;
 
   const selectedLockableCases = selectedCases.filter((tc) => !tc.locked && !!evalStatusByCase[tc.id]);
