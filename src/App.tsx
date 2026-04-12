@@ -10,7 +10,6 @@ import TestCaseList from "@/pages/TestCaseList";
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
 import RegressionDashboard from "@/pages/RegressionDashboard";
-import AgentContract from "@/pages/AgentContract";
 import TestCaseAgentList from "@/pages/TestCaseAgentList";
 import NotFound from "@/pages/NotFound";
 

@@ -62,7 +62,7 @@ export default function AgentList() {
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{agent.id.slice(0, 12)}…</td>
                   <td className="px-4 py-3 text-right">
                     <Link
-                      to={`/agents/${agent.id}/contract`}
+                      to={`/agents/${agent.id}`}
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       <FileText className="w-3 h-3" />
