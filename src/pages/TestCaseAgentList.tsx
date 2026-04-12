@@ -461,22 +461,36 @@ export default function TestCaseAgentList() {
           <h1 className="mb-1 text-xl font-semibold text-foreground">Test Cases</h1>
           <p className="text-sm text-muted-foreground">
             {filteredCases.length} test case{filteredCases.length !== 1 ? "s" : ""}
-            {selectedAgentId !== "all" ? " (filtered)" : " across all agents"}
+            {selectedFilter !== "all" ? " (filtered)" : " across all agents"}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-            <SelectTrigger className="h-9 w-[220px] text-sm">
-              <SelectValue placeholder="Filter by agent" />
+          <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+            <SelectTrigger className="h-9 w-[300px] text-sm">
+              <SelectValue placeholder="Filter by version" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Agents</SelectItem>
-              {agents.map(({ agent }) => (
-                <SelectItem key={agent.id} value={agent.id}>
-                  {agent.name}
-                </SelectItem>
-              ))}
+              {agents.map(({ agent, versions }) => {
+                const sorted = [...versions].sort((a, b) => a.version_number - b.version_number);
+                return (
+                  <div key={agent.id}>
+                    <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      {agent.name}
+                    </div>
+                    {sorted.length > 0 ? sorted.map((v) => (
+                      <SelectItem key={v.id} value={`agent::${agent.id}::version::${v.id}`}>
+                        v{v.version_number} — {v.label || "Untitled"}
+                      </SelectItem>
+                    )) : (
+                      <SelectItem value={`agent::${agent.id}::version::legacy`}>
+                        {agent.name} (no versions)
+                      </SelectItem>
+                    )}
+                  </div>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
