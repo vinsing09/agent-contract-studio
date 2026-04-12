@@ -356,9 +356,19 @@ export default function RegressionDashboard() {
 
             {result.summary.no_progress_count > 0 && (
               <div className="bg-card border border-border rounded border-l-2 border-l-muted-foreground/30 p-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">
                   NO PROGRESS — {result.summary.no_progress_count} cases still failing
                 </h3>
+                {result.no_progress && result.no_progress.length > 0 && (
+                  <div className="space-y-1.5">
+                    {result.no_progress.map((np) => (
+                      <div key={np.test_case_id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <X className="w-3.5 h-3.5" />
+                        {np.scenario}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
