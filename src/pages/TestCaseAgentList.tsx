@@ -75,8 +75,6 @@ export default function TestCaseAgentList() {
   const [selectedFilter, setSelectedFilter] = useState<string>(initFilter);
   const [evalStatusByCase, setEvalStatusByCase] = useState<Record<string, EvalStatus>>({});
   const [latestEvalRunByAgent, setLatestEvalRunByAgent] = useState<Record<string, EvalRun | null>>({});
-  const [evalStatusByCase, setEvalStatusByCase] = useState<Record<string, EvalStatus>>({});
-  const [latestEvalRunByAgent, setLatestEvalRunByAgent] = useState<Record<string, EvalRun | null>>({});
 
   const [lockModal, setLockModal] = useState<any | null>(null);
   const [lockIntent, setLockIntent] = useState<"protect" | "track">("protect");
