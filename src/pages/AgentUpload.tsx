@@ -80,6 +80,7 @@ export default function AgentUpload() {
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
   const [rejectedFixIds, setRejectedFixIds] = useState<Set<string>>(new Set());
   const [expandedFixes, setExpandedFixes] = useState<Set<string>>(new Set());
+  const [reviewedFixIds, setReviewedFixIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -125,6 +126,7 @@ export default function AgentUpload() {
       setAuditReport(report);
 
       setRejectedFixIds(new Set());
+      setReviewedFixIds(new Set());
 
       setStep(3);
     } catch (err: any) {
@@ -151,12 +153,21 @@ export default function AgentUpload() {
     }
   };
 
+  const markReviewed = (fixId: string) => {
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      return next;
+    });
+  };
+
   const acceptFix = (fixId: string) => {
     setRejectedFixIds((prev) => {
       const next = new Set(prev);
       next.delete(fixId);
       return next;
     });
+    markReviewed(fixId);
   };
 
   const rejectFix = (fixId: string) => {
@@ -165,6 +176,7 @@ export default function AgentUpload() {
       next.add(fixId);
       return next;
     });
+    markReviewed(fixId);
   };
 
   const toggleExpandFix = (issueId: string) => {
@@ -503,19 +515,28 @@ export default function AgentUpload() {
               </div>
             )}
 
-            <button
-              onClick={handleCommit}
-              disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
-            >
-              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {loading ? "Creating v1..." : "Generate v1 Agent →"}
-            </button>
+            {(() => {
+              const allReviewed = reviewedFixIds.size >= totalFixes;
+              const remaining = totalFixes - reviewedFixIds.size;
+              return (
+                <>
+                  <button
+                    onClick={handleCommit}
+                    disabled={loading || !allReviewed}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
+                  >
+                    {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {loading ? "Creating v1..." : "Generate v1 Agent →"}
+                  </button>
 
-            <p className="text-xs text-muted-foreground text-center">
-              v1 will be created from your original prompt with accepted fixes
-              applied.
-            </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {!allReviewed
+                      ? `Review all ${remaining} remaining fix${remaining !== 1 ? "es" : ""} to continue`
+                      : `Ready — ${acceptedCount} fix${acceptedCount !== 1 ? "es" : ""} will be applied to v1`}
+                  </p>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
