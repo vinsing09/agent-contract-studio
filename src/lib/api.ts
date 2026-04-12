@@ -237,4 +237,34 @@ export const api = {
 
   getAgentVersions: (agentId: string) =>
     request<AgentVersion[]>(`/agents/${agentId}/versions`),
+
+  extractSchema: (agentId: string) =>
+    request<any>(`/agents/${agentId}/schema/extract`, { method: "POST" }),
+
+  getSchema: (agentId: string) =>
+    request<any>(`/agents/${agentId}/schema`),
+
+  generateContractV2: (agentId: string, versionId: string) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/contract/generate`,
+      { method: "POST" }
+    ),
+
+  getContractV2: (agentId: string, versionId: string) =>
+    request<any>(`/agents/${agentId}/versions/${versionId}/contract`),
+
+  generateTestCasesV2: (agentId: string, versionId: string) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/test-cases/generate`,
+      { method: "POST" }
+    ),
+
+  getTestCasesV2: (agentId: string, versionId: string) =>
+    request<any[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
+
+  runEvalV2: (agentId: string, versionId: string) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/eval-runs`,
+      { method: "POST", body: JSON.stringify({ run_type: "full" }) }
+    ),
 };

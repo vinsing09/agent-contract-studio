@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult } from "@/lib/api";
+import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
@@ -11,10 +11,13 @@ export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [agent, setAgent] = useState<Agent | null>(null);
-  const [contract, setContract] = useState<Contract | null>(null);
+  const [contract, setContract] = useState<any>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [latestRun, setLatestRun] = useState<EvalRun | null>(null);
   const [latestResults, setLatestResults] = useState<EvalResult[]>([]);
+  const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [activeVersion, setActiveVersion] = useState<AgentVersion | null>(null);
+  const [schema, setSchema] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -27,6 +30,7 @@ export default function AgentDetail() {
   const [deleteError, setDeleteError] = useState("");
 
   const [generatingContract, setGeneratingContract] = useState(false);
+  const [contractStatus, setContractStatus] = useState("");
   const [generatingTests, setGeneratingTests] = useState(false);
   const [runningEval, setRunningEval] = useState(false);
 
@@ -35,19 +39,40 @@ export default function AgentDetail() {
     setLoading(true);
     Promise.all([
       api.getAgent(id),
-      api.getAgentContract(id).catch(() => null),
-      api.getTestCases(id).catch(() => []),
+      api.getAgentVersions(id).catch(() => []),
+      api.getSchema(id).catch(() => null),
       api.getEvalRuns().catch(() => []),
     ])
-      .then(([agentData, contractData, cases, runs]) => {
+      .then(async ([agentData, versionsData, schemaData, runs]) => {
         setAgent(agentData);
+        const vList = Array.isArray(versionsData) ? versionsData : [];
+        setVersions(vList);
+        setSchema(schemaData);
+
+        // Find latest version
+        const latest = vList.length > 0
+          ? vList.reduce((a, b) => a.version_number > b.version_number ? a : b)
+          : null;
+        setActiveVersion(latest);
+
+        // Fetch contract and test cases using V2 if we have a version, else fallback
+        const [contractData, cases] = await Promise.all([
+          latest
+            ? api.getContractV2(id, latest.id).catch(() => null)
+            : api.getAgentContract(id).catch(() => null),
+          latest
+            ? api.getTestCasesV2(id, latest.id).catch(() => [])
+            : api.getTestCases(id).catch(() => []),
+        ]);
+
         setContract(contractData || agentData.contract || null);
         setTestCases(Array.isArray(cases) ? cases : []);
+
         const agentRuns = (runs as EvalRun[]).filter((r) => r.agent_id === id);
         if (agentRuns.length > 0) {
-          const latest = agentRuns[0];
-          setLatestRun(latest);
-          api.getEvalRunResults(latest.id)
+          const latestR = agentRuns[0];
+          setLatestRun(latestR);
+          api.getEvalRunResults(latestR.id)
             .then((res) => setLatestResults(res))
             .catch(() => {});
         }
@@ -77,23 +102,29 @@ export default function AgentDetail() {
   };
 
   const handleGenerateContract = async () => {
-    if (!id) return;
+    if (!id || !activeVersion) return;
     setGeneratingContract(true);
+    setContractStatus("Extracting schema...");
     try {
-      const c = await api.generateContract(id);
+      await api.extractSchema(id);
+      setContractStatus("Generating contract...");
+      await api.generateContractV2(id, activeVersion.id);
+      const c = await api.getContractV2(id, activeVersion.id);
       setContract(c);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setGeneratingContract(false);
+      setContractStatus("");
     }
   };
 
   const handleGenerateTests = async () => {
-    if (!id) return;
+    if (!id || !activeVersion) return;
     setGeneratingTests(true);
     try {
-      const cases = await api.generateTestCases(id);
+      await api.generateTestCasesV2(id, activeVersion.id);
+      const cases = await api.getTestCasesV2(id, activeVersion.id);
       setTestCases(Array.isArray(cases) ? cases : []);
     } catch (err: any) {
       setError(err.message);
@@ -103,10 +134,10 @@ export default function AgentDetail() {
   };
 
   const handleRunEval = async () => {
-    if (!id) return;
+    if (!id || !activeVersion) return;
     setRunningEval(true);
     try {
-      const response = await api.runEval(id) as any;
+      const response = await api.runEvalV2(id, activeVersion.id) as any;
       const runId = response?.eval_run?.id || response?.id;
       const results = await api.getEvalRunResults(runId);
       setLatestRun(response?.eval_run || response);
@@ -159,6 +190,16 @@ export default function AgentDetail() {
     }
   }
 
+  // Check if obligations are V2 format (objects with id/text/source)
+  const obligations = contract?.obligations || [];
+  const isV2Obligations = obligations.length > 0 && typeof obligations[0] === "object" && obligations[0]?.text;
+
+  const sourceColors: Record<string, string> = {
+    goal: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    desired_behavior: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    behavioral: "bg-muted text-muted-foreground border-border",
+  };
+
   return (
     <div className="px-6 py-6 animate-fade-in">
       <Link
@@ -186,8 +227,30 @@ export default function AgentDetail() {
         {/* Left Column - 30% */}
         <div className="w-[30%] shrink-0 space-y-5">
           <div>
-            <h1 className="text-lg font-semibold text-foreground">{agent.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold text-foreground">{agent.name}</h1>
+              {activeVersion && (
+                <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-full">
+                  v{activeVersion.version_number}
+                </span>
+              )}
+            </div>
             <p className="text-xs font-mono text-muted-foreground mt-1">{agent.id}</p>
+            {activeVersion && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Version {activeVersion.version_number} · {activeVersion.source} · {new Date(activeVersion.created_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+
+          {/* Business Goal */}
+          <div className="border border-border rounded bg-card">
+            <div className="px-3 py-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Goal</span>
+              <p className="text-sm text-foreground mt-1">
+                {(agent as any).business_goal || <span className="text-muted-foreground italic">No business goal set</span>}
+              </p>
+            </div>
           </div>
 
           {/* System Prompt */}
@@ -248,12 +311,23 @@ export default function AgentDetail() {
             </div>
             {hasContract && contract && (
               <div className="space-y-3">
-                {contract.obligations && contract.obligations.length > 0 && (
+                {obligations.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Obligations</p>
-                    <ol className="space-y-1 list-decimal list-inside">
-                      {contract.obligations.map((ob, i) => (
-                        <li key={i} className="text-sm text-foreground">{ob}</li>
+                    <ol className="space-y-1.5 list-decimal list-inside">
+                      {obligations.map((ob: any, i: number) => (
+                        <li key={isV2Obligations ? ob.id : i} className="text-sm text-foreground">
+                          {isV2Obligations ? (
+                            <span className="inline-flex items-center gap-2">
+                              <span>{ob.text}</span>
+                              <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${sourceColors[ob.source] || sourceColors.behavioral}`}>
+                                {ob.source}
+                              </span>
+                            </span>
+                          ) : (
+                            ob
+                          )}
+                        </li>
                       ))}
                     </ol>
                   </div>
@@ -322,19 +396,21 @@ export default function AgentDetail() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleGenerateContract}
-              disabled={hasContract || generatingContract}
+              disabled={hasContract || generatingContract || !activeVersion}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
             >
               {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {hasContract ? (
                 <><CheckCircle2 className="w-3.5 h-3.5 text-success" /> Contract Generated</>
+              ) : generatingContract ? (
+                contractStatus
               ) : (
                 "Generate Contract"
               )}
             </button>
             <button
               onClick={handleGenerateTests}
-              disabled={!hasContract || generatingTests}
+              disabled={!hasContract || generatingTests || !activeVersion}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
             >
               {generatingTests && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -346,7 +422,7 @@ export default function AgentDetail() {
             </button>
             <button
               onClick={handleRunEval}
-              disabled={!hasTests || runningEval}
+              disabled={!hasTests || runningEval || !activeVersion}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
             >
               {runningEval && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
