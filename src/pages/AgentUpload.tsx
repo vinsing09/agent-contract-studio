@@ -126,6 +126,7 @@ export default function AgentUpload() {
       setAuditReport(report);
 
       setRejectedFixIds(new Set());
+      setReviewedFixIds(new Set());
 
       setStep(3);
     } catch (err: any) {
