@@ -132,16 +132,20 @@ export default function TestCaseDetailPage() {
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink asChild><Link to="/test-cases">Test Cases</Link></BreadcrumbLink>
+            <BreadcrumbLink asChild><Link to="/agents">Agents</Link></BreadcrumbLink>
           </BreadcrumbItem>
           {agentId && (
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink asChild><Link to={`/agents/${agentId}/test-cases`}>{agentName || "Agent"}</Link></BreadcrumbLink>
+                <BreadcrumbLink asChild><Link to={`/agents/${agentId}`}>{agentName || "Agent"}</Link></BreadcrumbLink>
               </BreadcrumbItem>
             </>
           )}
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to={agentId ? `/test-cases?agent=${agentId}` : "/test-cases"}>Test Cases</Link></BreadcrumbLink>
+          </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage>{tc?.scenario ? (tc.scenario.length > 40 ? tc.scenario.slice(0, 40) + "…" : tc.scenario) : "Detail"}</BreadcrumbPage>
@@ -201,29 +205,33 @@ export default function TestCaseDetailPage() {
 
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>
-            <div className="space-y-2">
-              {toolStubs.map((stub, i) => (
-                <div key={i} className="border border-border rounded bg-card">
-                  <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm text-foreground font-medium">{stub.name}</span>
-                    {stub.latency_ms != null && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
-                        <Clock className="w-2.5 h-2.5" />
-                        {stub.latency_ms}ms
-                      </span>
-                    )}
-                    {stub.simulate_failure && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">
-                        FAILURE SIMULATED
-                      </span>
-                    )}
+            {toolStubs.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No tool stubs configured for this test case.</p>
+            ) : (
+              <div className="space-y-2">
+                {toolStubs.map((stub, i) => (
+                  <div key={i} className="border border-border rounded bg-card">
+                    <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm text-foreground font-medium">{stub.name}</span>
+                      {stub.latency_ms != null && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
+                          <Clock className="w-2.5 h-2.5" />
+                          {stub.latency_ms}ms
+                        </span>
+                      )}
+                      {stub.simulate_failure && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">
+                          FAILURE SIMULATED
+                        </span>
+                      )}
+                    </div>
+                    <div className="border-t border-border">
+                      <CodeBlock>{JSON.stringify(stub.response, null, 2)}</CodeBlock>
+                    </div>
                   </div>
-                  <div className="border-t border-border">
-                    <CodeBlock>{JSON.stringify(stub.response, null, 2)}</CodeBlock>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section>
@@ -350,6 +358,11 @@ export default function TestCaseDetailPage() {
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
                 <Inbox className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm">Run eval to see results</p>
+                {agentId && (
+                  <Link to={`/agents/${agentId}`} className="text-xs text-primary hover:underline mt-2">
+                    ← Back to agent to run eval
+                  </Link>
+                )}
               </div>
             ) : null}
           </section>
