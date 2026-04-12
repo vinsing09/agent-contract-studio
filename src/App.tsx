@@ -6,7 +6,7 @@ import { AppLayout } from "@/components/AppLayout";
 import AgentUpload from "@/pages/AgentUpload";
 import AgentList from "@/pages/AgentList";
 import AgentDetail from "@/pages/AgentDetail";
-import TestCaseList from "@/pages/TestCaseList";
+
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
 import RegressionDashboard from "@/pages/RegressionDashboard";
@@ -28,7 +28,7 @@ const App = () => (
             <Route path="/agents/:id" element={<AgentDetail />} />
             
             <Route path="/test-cases" element={<TestCaseAgentList />} />
-            <Route path="/agents/:agentId/test-cases" element={<TestCaseList />} />
+            
             <Route path="/agents/:agentId/test-cases/:id" element={<TestCaseDetail />} />
             <Route path="/test-cases/:id" element={<TestCaseDetail />} />
             <Route path="/eval-runs" element={<EvalRunHistory />} />
