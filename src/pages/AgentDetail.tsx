@@ -677,7 +677,126 @@ export default function AgentDetail() {
               {runningEval && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {latestRun ? "Re-run Eval" : "Run Full Eval"}
             </button>
+            {latestRun && (latestRun as any).status === "completed" && (
+              <button
+                onClick={handleSuggestImprovements}
+                disabled={loadingSuggestions}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loadingSuggestions ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                Suggest Improvements
+              </button>
+            )}
           </div>
+
+          {/* Improvement Panel */}
+          {showImprovements && (
+            <div className="border border-border rounded bg-card p-4 mt-4 space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Suggested Improvements</h3>
+                  {!loadingSuggestions && suggestions.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Based on {latestResults.filter(r => r.passed === false).length} failing cases from the last eval. Review and accept fixes to create a new version.
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => setShowImprovements(false)} className="p-1 hover:bg-muted rounded transition-colors">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              {loadingSuggestions && (
+                <div className="flex items-center gap-2 py-6 justify-center text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing failures...
+                </div>
+              )}
+
+              {improvementError && (
+                <div className="px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {improvementError}
+                </div>
+              )}
+
+              {!loadingSuggestions && suggestions.length > 0 && (
+                <>
+                  <div className="space-y-3">
+                    {suggestions.map((s: any) => {
+                      const isAccepted = acceptedSuggestionIds.has(s.id);
+                      const isRejected = rejectedSuggestionIds.has(s.id);
+                      return (
+                        <div key={s.id} className="border border-border rounded bg-background p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleAcceptSuggestion(s.id)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm border transition-colors ${
+                                isAccepted
+                                  ? "bg-success/15 text-success border-success/30"
+                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                              }`}
+                            >
+                              <Check className="w-3 h-3" />
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleRejectSuggestion(s.id)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm border transition-colors ${
+                                isRejected
+                                  ? "bg-destructive/15 text-destructive border-destructive/30"
+                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                              }`}
+                            >
+                              <XCircle className="w-3 h-3" />
+                              Reject
+                            </button>
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">{s.failure_pattern}</p>
+                          <p className="text-xs text-muted-foreground">{s.description}</p>
+                          {s.prompt_patch && (
+                            <pre className="p-2 text-xs font-mono bg-muted/50 border border-border rounded overflow-x-auto text-foreground leading-relaxed">
+                              <code>{s.prompt_patch}</code>
+                            </pre>
+                          )}
+                          {s.affected_cases && s.affected_cases.length > 0 && (
+                            <div className="flex flex-wrap gap-1 items-center">
+                              <span className="text-[10px] text-muted-foreground">Affects {s.affected_cases.length} cases:</span>
+                              {s.affected_cases.map((c: any, i: number) => (
+                                <span key={i} className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
+                                  {typeof c === "string" ? c : c.scenario || c.name || c.id}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    {acceptedSuggestionIds.size} improvements accepted, {rejectedSuggestionIds.size} rejected
+                  </p>
+
+                  {reviewedSuggestionIds.size < suggestions.length && (
+                    <p className="text-xs text-muted-foreground">
+                      Review all {suggestions.length - reviewedSuggestionIds.size} suggestions to continue
+                    </p>
+                  )}
+
+                  <button
+                    onClick={handleApplyFixes}
+                    disabled={reviewedSuggestionIds.size < suggestions.length || applyingFixes}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                  >
+                    {applyingFixes && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Create New Version with Accepted Fixes
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {latestRun && (
             <p className="text-xs text-muted-foreground mt-1">
               Last eval: {passedCaseCount}/{totalCaseCount} cases passed · {new Date(latestRun.started_at).toLocaleDateString()}
