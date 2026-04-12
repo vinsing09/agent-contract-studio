@@ -389,28 +389,48 @@ export default function TestCaseAgentList() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-foreground">Bulk Lock</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {passingUnlockedCases.length} passing ready for Protect • {failingUnlockedCases.length} failing ready for Track
-                {unevaluatedFilteredCount > 0 ? ` • ${unevaluatedFilteredCount} not in the latest eval yet` : ""}
-              </p>
+              {allLocked ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  All {lockedCount} cases are already locked. Unlock them first to re-lock with different intents.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {passingAllCases.length} passing ({passingUnlockedCases.length} unlocked) • {failingAllCases.length} failing ({failingUnlockedCases.length} unlocked)
+                  {lockedCount > 0 ? ` • ${lockedCount} already locked` : ""}
+                  {unevaluatedFilteredCount > 0 ? ` • ${unevaluatedFilteredCount} not evaluated yet` : ""}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => bulkLock(passingUnlockedCases.map((tc) => tc.id), "protect")}
-                disabled={bulkLocking || passingUnlockedCases.length === 0}
-                className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-              >
-                <Shield className="h-3 w-3 text-success" />
-                Lock all passing as Protect
-              </button>
-              <button
-                onClick={() => bulkLock(failingUnlockedCases.map((tc) => tc.id), "track")}
-                disabled={bulkLocking || failingUnlockedCases.length === 0}
-                className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-              >
-                <Target className="h-3 w-3 text-primary" />
-                Lock all failing as Track
-              </button>
+              {allLocked ? (
+                <button
+                  onClick={() => bulkUnlock(filteredCases.filter((tc) => tc.locked).map((tc) => tc.id))}
+                  disabled={bulkLocking}
+                  className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  <Unlock className="h-3 w-3" />
+                  Unlock All
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => bulkLock(passingUnlockedCases.map((tc) => tc.id), "protect")}
+                    disabled={bulkLocking || passingUnlockedCases.length === 0}
+                    className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    <Shield className="h-3 w-3 text-success" />
+                    Lock all passing as Protect ({passingUnlockedCases.length})
+                  </button>
+                  <button
+                    onClick={() => bulkLock(failingUnlockedCases.map((tc) => tc.id), "track")}
+                    disabled={bulkLocking || failingUnlockedCases.length === 0}
+                    className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    <Target className="h-3 w-3 text-primary" />
+                    Lock all failing as Track ({failingUnlockedCases.length})
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
