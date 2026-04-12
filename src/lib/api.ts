@@ -268,6 +268,15 @@ export const api = {
       { method: "POST", body: JSON.stringify({ run_type: "full" }) }
     ),
 
+  lockTestCaseWithIntent: (id: string, intent: "protect" | "track") =>
+    request<any>(`/test-cases/${id}/lock`, {
+      method: "POST",
+      body: JSON.stringify({ intent }),
+    }),
+
+  getTestCaseDetail: (id: string) =>
+    request<any>(`/test-cases/${id}`),
+
   createVersion: (agentId: string, data: {
     system_prompt: string;
     tool_schemas: any[];
