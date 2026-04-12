@@ -411,7 +411,7 @@ export default function AgentUpload() {
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             onClick={() => { if (!isAccepted) toggleFix(fix.id); }}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-colors ${
                               isAccepted
                                 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                                 : "bg-card border border-border text-muted-foreground hover:bg-muted"
@@ -421,7 +421,7 @@ export default function AgentUpload() {
                           </button>
                           <button
                             onClick={() => { if (isAccepted) toggleFix(fix.id); }}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-colors ${
                               !isAccepted
                                 ? "bg-destructive/10 text-destructive border border-destructive/30"
                                 : "bg-card border border-border text-muted-foreground hover:bg-muted"
