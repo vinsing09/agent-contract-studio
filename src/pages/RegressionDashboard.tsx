@@ -19,6 +19,11 @@ interface ImprovementCase {
   scenario: string;
 }
 
+interface NoProgressCase {
+  test_case_id: string;
+  scenario: string;
+}
+
 interface RegressionResult {
   status: "PASSED" | "BLOCKED";
   run_id: string;
@@ -33,6 +38,7 @@ interface RegressionResult {
   };
   regressions: RegressionCase[];
   improvements: ImprovementCase[];
+  no_progress?: NoProgressCase[];
 }
 
 export default function RegressionDashboard() {
