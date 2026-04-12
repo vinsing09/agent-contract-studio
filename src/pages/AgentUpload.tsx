@@ -421,18 +421,26 @@ export default function AgentUpload() {
                       </button>
 
                       {isExpanded && (
-                        <div className="px-4 pb-3 border-t border-border pt-3 space-y-3">
-                          <p className="text-sm text-muted-foreground italic">
+                        <div className={`px-4 pb-3 border-t pt-3 space-y-3 transition-colors ${
+                          !acceptedFixIds.has(fix.id)
+                            ? "border-destructive/30 bg-destructive/5"
+                            : "border-border"
+                        }`}>
+                          <p className={`text-sm italic ${
+                            !acceptedFixIds.has(fix.id)
+                              ? "text-muted-foreground/50 line-through"
+                              : "text-muted-foreground"
+                          }`}>
                             {fix.description}
                           </p>
-                          <CodeBlock label="Prompt Patch">
-                            {fix.prompt_patch}
-                          </CodeBlock>
+                          <div className={!acceptedFixIds.has(fix.id) ? "opacity-50 line-through decoration-destructive/50" : ""}>
+                            <CodeBlock label="Prompt Patch">
+                              {fix.prompt_patch}
+                            </CodeBlock>
+                          </div>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() =>
-                                !acceptedFixIds.has(fix.id) && toggleFix(fix.id)
-                              }
+                              onClick={() => toggleFix(fix.id)}
                               className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
                                 acceptedFixIds.has(fix.id)
                                   ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
@@ -442,9 +450,7 @@ export default function AgentUpload() {
                               <Check className="w-3 h-3" /> Accept
                             </button>
                             <button
-                              onClick={() =>
-                                acceptedFixIds.has(fix.id) && toggleFix(fix.id)
-                              }
+                              onClick={() => toggleFix(fix.id)}
                               className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
                                 !acceptedFixIds.has(fix.id)
                                   ? "bg-destructive/10 text-destructive border border-destructive/30"
