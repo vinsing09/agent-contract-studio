@@ -462,15 +462,8 @@ export default function TestCaseAgentList() {
             <div>
               <p className="text-sm font-medium text-foreground">Bulk Lock</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {evaluatedFilteredCases.length > 0 ? (
-                  <>
-                    Eval results: {passingAllCases.length} passing, {failingAllCases.length} failing
-                    {lockedCount > 0 && ` · ${lockedCount} already locked`}
-                    {unevaluatedFilteredCount > 0 && ` · ${unevaluatedFilteredCount} not evaluated`}
-                  </>
-                ) : (
-                  <>No eval results found for this agent's test cases. Run an eval first.</>
-                )}
+                {lockedCount > 0 && `${lockedCount} already locked · `}
+                {filteredCases.length - lockedCount} unlocked
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -485,23 +478,25 @@ export default function TestCaseAgentList() {
                 </button>
               )}
               <button
-                onClick={() => bulkLock(passingUnlockedCases.map((tc) => tc.id), "protect")}
-                disabled={bulkLocking || passingUnlockedCases.length === 0}
+                onClick={smartLockFromEval}
+                disabled={bulkLocking || allLocked}
                 className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
-                <Shield className="h-3 w-3 text-success" />
-                Must Hold Passing ({passingUnlockedCases.length})
-              </button>
-              <button
-                onClick={() => bulkLock(failingUnlockedCases.map((tc) => tc.id), "track")}
-                disabled={bulkLocking || failingUnlockedCases.length === 0}
-                className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-              >
-                <Target className="h-3 w-3 text-primary" />
-                Watch Failing ({failingUnlockedCases.length})
+                <Lock className="h-3 w-3" />
+                {allLocked ? "All cases locked" : "Lock from Eval Results"}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {smartLockSummary && !bulkLocking && (
+        <div className="mb-3 flex items-center gap-2 rounded border border-success/30 bg-success/10 px-3 py-2.5">
+          <CheckSquare className="h-3.5 w-3.5 text-success" />
+          <span className="text-xs font-medium text-foreground">{smartLockSummary}</span>
+          <button onClick={() => setSmartLockSummary(null)} className="ml-auto text-muted-foreground hover:text-foreground">
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
 
