@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, Agent } from "@/lib/api";
-import { Box, Loader2, FileText } from "lucide-react";
+import { Box, Loader2 } from "lucide-react";
 
 export default function AgentList() {
   const { data: agents, isLoading, error } = useQuery<Agent[]>({
@@ -55,7 +55,7 @@ export default function AgentList() {
               {agents.map((agent) => (
                 <tr key={agent.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 font-medium text-foreground">
-                    <Link to={`/agents/${agent.id}`} className="hover:text-primary transition-colors">
+                    <Link to={`/agents/${agent.id}`} className="hover:text-primary transition-colors block">
                       {agent.name}
                     </Link>
                   </td>
@@ -65,8 +65,7 @@ export default function AgentList() {
                       to={`/agents/${agent.id}`}
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                     >
-                      <FileText className="w-3 h-3" />
-                      View Contract
+                      View →
                     </Link>
                   </td>
                 </tr>

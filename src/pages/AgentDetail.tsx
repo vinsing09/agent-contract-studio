@@ -247,9 +247,20 @@ export default function AgentDetail() {
 
   const hasContract = !!contract;
   const hasTests = testCases.length > 0;
-  const passedCount = latestResults.filter((r) => r.passed === true).length;
-  const totalCount = latestResults.length;
-  const passRate = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 0;
+  const testCaseIds = [
+    ...new Set(latestResults.map(r => (r as any).test_case_id))
+  ];
+  const passedCaseCount = testCaseIds.filter(tcId => {
+    const caseResults = latestResults.filter(r =>
+      (r as any).test_case_id === tcId &&
+      (r as any).result_type === 'deterministic'
+    );
+    return caseResults.length > 0 &&
+      caseResults.every(r => r.passed === true);
+  }).length;
+  const totalCaseCount = testCaseIds.length;
+  const passRate = totalCaseCount > 0 ?
+    Math.round((passedCaseCount / totalCaseCount) * 100) : 0;
 
   // Tag breakdown
   const tagCounts: Record<string, number> = {};
@@ -507,7 +518,7 @@ export default function AgentDetail() {
                 <StatusBadge status={latestRun.status} />
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="font-mono">{passedCount}/{totalCount} passed ({passRate}%)</span>
+                <span className="font-mono">{passedCaseCount}/{totalCaseCount} cases passed ({passRate}%)</span>
                 <span>{new Date(latestRun.started_at).toLocaleDateString()}</span>
               </div>
             </section>
@@ -515,26 +526,9 @@ export default function AgentDetail() {
 
           {/* Next Step Guidance */}
           {(() => {
-            const hasLockedCases = testCases.some((tc) => tc.locked);
-            const hasEvalRun = !!latestRun;
+            const hasLockedCases = testCases.some((tc) => (tc as any).locked === true);
 
-            if (!hasContract) {
-              return (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
-                  <span className="text-primary font-bold">→</span>
-                  Start by generating a contract from your agent definition
-                </div>
-              );
-            }
-            if (!hasTests) {
-              return (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
-                  <span className="text-primary font-bold">→</span>
-                  Generate test cases to start evaluating your agent
-                </div>
-              );
-            }
-            if (!hasEvalRun) {
+            if (hasTests && !latestRun) {
               return (
                 <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
                   <span className="text-primary font-bold">→</span>
@@ -542,24 +536,29 @@ export default function AgentDetail() {
                 </div>
               );
             }
-            if (!hasLockedCases) {
+            if (hasTests && latestRun && !hasLockedCases) {
               return (
                 <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
                   <span className="text-primary font-bold">→</span>
+                  Lock cases to build your regression suite —{" "}
                   <Link to={`/test-cases?agent=${id}`} className="text-primary hover:underline">
-                    Go to Test Cases to review results and lock cases for regression protection
+                    Go to Test Cases →
                   </Link>
                 </div>
               );
             }
-            return (
-              <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
-                <span className="text-primary font-bold">→</span>
-                <Link to="/regression" className="text-primary hover:underline">
-                  Go to Regression to test a new version against your locked cases
-                </Link>
-              </div>
-            );
+            if (hasLockedCases) {
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 text-xs bg-primary/10 border border-primary/20 rounded text-muted-foreground">
+                  <span className="text-primary font-bold">→</span>
+                  Ready for regression — test a new version —{" "}
+                  <Link to="/regression" className="text-primary hover:underline">
+                    Go to Regression →
+                  </Link>
+                </div>
+              );
+            }
+            return null;
           })()}
 
           {/* Action Buttons */}
@@ -598,12 +597,21 @@ export default function AgentDetail() {
             <button
               onClick={handleRunEval}
               disabled={!hasTests || runningEval || !activeVersion}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] ${
+                latestRun
+                  ? "border border-border bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              }`}
             >
               {runningEval && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Run Full Eval
+              {latestRun ? "Re-run Eval" : "Run Full Eval"}
             </button>
           </div>
+          {latestRun && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last eval: {passedCaseCount}/{totalCaseCount} cases passed · {new Date(latestRun.started_at).toLocaleDateString()}
+            </p>
+          )}
         </div>
       </div>
 
