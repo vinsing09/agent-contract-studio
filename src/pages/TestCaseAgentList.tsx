@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, type Agent, type AgentVersion } from "@/lib/api";
 import { StatusBadge, TagBadge } from "@/components/ui-shared";
-import { Box, Loader2, Shield, Target, Lock, Filter } from "lucide-react";
+import { Box, Loader2, Shield, Target, Lock, Unlock, Filter, AlertCircle, Eye, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AgentWithVersion {
@@ -11,11 +11,23 @@ interface AgentWithVersion {
 }
 
 export default function TestCaseAgentList() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<AgentWithVersion[]>([]);
   const [allTestCases, setAllTestCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState<string>("all");
+
+  // Lock intent modal state
+  const [lockModal, setLockModal] = useState<any | null>(null);
+  const [lockIntent, setLockIntent] = useState<"protect" | "track">("protect");
+  const [lockError, setLockError] = useState("");
+  const [lockingCase, setLockingCase] = useState(false);
+  const [lockingIds, setLockingIds] = useState<Set<string>>(new Set());
+
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<any | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -62,6 +74,65 @@ export default function TestCaseAgentList() {
     ? allTestCases
     : allTestCases.filter((tc) => tc._agent_id === selectedAgentId || tc.agent_id === selectedAgentId);
 
+  const handleLockClick = (tc: any) => {
+    if (tc.locked) {
+      handleUnlock(tc);
+    } else {
+      setLockModal(tc);
+      setLockIntent("protect");
+      setLockError("");
+    }
+  };
+
+  const handleUnlock = async (tc: any) => {
+    setLockingIds((prev) => new Set(prev).add(tc.id));
+    try {
+      await api.unlockTestCase(tc.id);
+      setAllTestCases((prev) =>
+        prev.map((t) => (t.id === tc.id ? { ...t, locked: false, locked_at_pass: undefined } : t))
+      );
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLockingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(tc.id);
+        return next;
+      });
+    }
+  };
+
+  const handleLockConfirm = async () => {
+    if (!lockModal) return;
+    setLockingCase(true);
+    setLockError("");
+    try {
+      await api.lockTestCaseWithIntent(lockModal.id, lockIntent);
+      setAllTestCases((prev) =>
+        prev.map((t) => (t.id === lockModal.id ? { ...t, locked: true, locked_at_pass: lockIntent === "protect" } : t))
+      );
+      setLockModal(null);
+    } catch (err: any) {
+      setLockError(err.message || "Failed to lock test case");
+    } finally {
+      setLockingCase(false);
+    }
+  };
+
+  const handleDeleteTestCase = async () => {
+    if (!deleteModal) return;
+    setDeletingId(deleteModal.id);
+    try {
+      await api.deleteTestCase(deleteModal.id);
+      setAllTestCases((prev) => prev.filter((tc) => tc.id !== deleteModal.id));
+      setDeleteModal(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -96,7 +167,8 @@ export default function TestCaseAgentList() {
       </div>
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 text-sm rounded mb-4">
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 text-sm rounded mb-4 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
         </div>
       )}
@@ -115,57 +187,208 @@ export default function TestCaseAgentList() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Scenario</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Tags</th>
                 <th className="text-center px-3 py-2 text-xs font-medium text-muted-foreground w-24">Lock</th>
-                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-20">Actions</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-36">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredCases.map((tc) => (
-                <tr key={tc.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{tc._agent_name}</td>
-                  <td className="px-3 py-2.5 text-foreground max-w-[280px]">
-                    <span className="block truncate" title={tc.scenario}>
-                      {tc.scenario?.length > 50 ? tc.scenario.slice(0, 50) + "…" : tc.scenario}
-                    </span>
-                    {tc.obligation_ids?.length > 0 && (
-                      <span className="text-xs text-muted-foreground/60">{tc.obligation_ids.length} obligations</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex flex-wrap gap-1">
-                      {(tc.tags || []).map((tag: string) => (
-                        <TagBadge key={tag} tag={tag} />
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    {tc.locked ? (
-                      tc.locked_at_pass ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400">
-                          <Shield className="w-3.5 h-3.5" />
-                          Protected
+              {filteredCases.map((tc) => {
+                const obligationCount = tc.obligation_ids?.length || 0;
+                return (
+                  <tr key={tc.id} className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{tc._agent_name}</td>
+                    <td className="px-3 py-2.5 text-foreground max-w-[280px]">
+                      <Link to={`/test-cases/${tc.id}`} className="hover:text-primary transition-colors">
+                        <span className="block truncate" title={tc.scenario}>
+                          {tc.scenario?.length > 50 ? tc.scenario.slice(0, 50) + "…" : tc.scenario}
                         </span>
+                      </Link>
+                      {obligationCount > 0 && (
+                        <span className="text-xs text-muted-foreground/60">{obligationCount} obligations</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-wrap gap-1">
+                        {(tc.tags || []).map((tag: string) => (
+                          <TagBadge key={tag} tag={tag} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      {tc.locked ? (
+                        tc.locked_at_pass ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400">
+                            <Shield className="w-3.5 h-3.5" />
+                            Protected
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-400">
+                            <Target className="w-3.5 h-3.5" />
+                            Tracking
+                          </span>
+                        )
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-400">
-                          <Target className="w-3.5 h-3.5" />
-                          Tracking
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-muted-foreground/50">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <Link
-                      to={`/agents/${tc._agent_id || tc.agent_id}/test-cases`}
-                      className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                    >
-                      View →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                        <span className="text-muted-foreground/50">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleLockClick(tc)}
+                          disabled={lockingIds.has(tc.id)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium border rounded transition-colors active:scale-[0.97] disabled:opacity-50 ${
+                            tc.locked
+                              ? "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                              : "text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                          }`}
+                        >
+                          {lockingIds.has(tc.id) ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : tc.locked ? (
+                            <Unlock className="w-3 h-3" />
+                          ) : (
+                            <Lock className="w-3 h-3" />
+                          )}
+                          {tc.locked ? "Unlock" : "Lock"}
+                        </button>
+                        <Link
+                          to={`/test-cases/${tc.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground border border-border rounded hover:bg-muted hover:text-foreground transition-colors active:scale-[0.97]"
+                        >
+                          <Eye className="w-3 h-3" />
+                          View
+                        </Link>
+                        <button
+                          onClick={() => setDeleteModal(tc)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-destructive/70 border border-destructive/20 rounded hover:bg-destructive/10 hover:text-destructive transition-colors active:scale-[0.97]"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Lock Intent Modal */}
+      {lockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLockModal(null)}>
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-foreground mb-1">Lock Test Case</h3>
+            <p className="text-sm text-muted-foreground mb-5 truncate" title={lockModal.scenario}>
+              {lockModal.scenario}
+            </p>
+
+            <div className="space-y-3 mb-5">
+              <button
+                onClick={() => setLockIntent("protect")}
+                className={`w-full text-left p-4 rounded-lg border-2 transition-colors ${
+                  lockIntent === "protect"
+                    ? "border-green-500/50 bg-green-500/10"
+                    : "border-border hover:border-border/80 hover:bg-muted/30"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <Shield className={`w-5 h-5 mt-0.5 shrink-0 ${lockIntent === "protect" ? "text-green-400" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className={`text-sm font-medium ${lockIntent === "protect" ? "text-green-400" : "text-foreground"}`}>
+                      Protect this behavior
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This case is currently passing. Lock it to prevent regression — any future failure will block deployment.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setLockIntent("track")}
+                className={`w-full text-left p-4 rounded-lg border-2 transition-colors ${
+                  lockIntent === "track"
+                    ? "border-blue-500/50 bg-blue-500/10"
+                    : "border-border hover:border-border/80 hover:bg-muted/30"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <Target className={`w-5 h-5 mt-0.5 shrink-0 ${lockIntent === "track" ? "text-blue-400" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className={`text-sm font-medium ${lockIntent === "track" ? "text-blue-400" : "text-foreground"}`}>
+                      Track improvement
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This case is currently failing. Lock it to monitor progress — improvement will be celebrated, not blocking.
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {lockError && (
+              <div className="mb-4 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {lockError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setLockModal(null)}
+                className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLockConfirm}
+                disabled={lockingCase}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {lockingCase && <Loader2 className="w-3 h-3 animate-spin" />}
+                Lock Case
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Test Case Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              <h3 className="text-base font-semibold text-foreground">Delete Test Case</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              {deleteModal.locked
+                ? "This is a regression case. Deleting it will remove it from your regression suite."
+                : "Are you sure you want to delete this test case? This cannot be undone."}
+            </p>
+            {deleteModal.locked && (
+              <div className="mb-3 px-2 py-1.5 text-xs bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-500 flex items-center gap-1.5">
+                <Lock className="w-3 h-3" />
+                This test case is locked as a regression case
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTestCase}
+                disabled={deletingId === deleteModal.id}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {deletingId === deleteModal.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
