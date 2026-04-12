@@ -117,7 +117,11 @@ export default function TestCaseDetailPage() {
     );
   }
 
-  const toolStubs = Array.isArray(tc.tool_stubs) ? tc.tool_stubs : [];
+  const toolStubEntries = tc.tool_stubs && typeof tc.tool_stubs === 'object' && !Array.isArray(tc.tool_stubs)
+    ? Object.entries(tc.tool_stubs as Record<string, any>)
+    : Array.isArray(tc.tool_stubs)
+      ? (tc.tool_stubs as any[]).map((s: any, i: number) => [s.name || `stub_${i}`, s])
+      : [];
   const assertions = Array.isArray(tc.assertions) ? tc.assertions : [];
   const passedCount = evalResults.filter((r) => r.passed === true).length;
   const hasEvalResults = evalResults.length > 0;
@@ -205,23 +209,27 @@ export default function TestCaseDetailPage() {
 
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>
-            {toolStubs.length === 0 ? (
+            {toolStubEntries.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">No tool stubs configured for this test case.</p>
             ) : (
               <div className="space-y-2">
-                {toolStubs.map((stub, i) => (
-                  <div key={i} className="border border-border rounded bg-card">
+                {toolStubEntries.map(([toolName, stub]) => (
+                  <div key={toolName} className="border border-border rounded bg-card">
                     <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm text-foreground font-medium">{stub.name}</span>
+                      <span className="font-mono text-sm text-foreground font-medium">{toolName}</span>
                       {stub.latency_ms != null && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
                           <Clock className="w-2.5 h-2.5" />
                           {stub.latency_ms}ms
                         </span>
                       )}
-                      {stub.simulate_failure && (
+                      {stub.simulate_failure ? (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">
-                          FAILURE SIMULATED
+                          Simulates Failure
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-success/15 text-success border border-success/30 rounded-sm">
+                          Normal
                         </span>
                       )}
                     </div>
@@ -244,11 +252,25 @@ export default function TestCaseDetailPage() {
                     <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm shrink-0 ${typeStyle}`}>
                       {a.type}
                     </span>
-                    {a.tool_name && <span className="font-mono text-foreground text-xs">{a.tool_name}</span>}
-                    {a.param && <span className="text-muted-foreground text-xs">.{a.param}</span>}
-                    {a.expected != null && (
-                      <span className="text-xs text-muted-foreground font-mono">= {JSON.stringify(a.expected)}</span>
+                    {(a.tool_name || a.tool) && (
+                      <span className="font-mono text-foreground text-xs">{a.tool_name || a.tool}</span>
                     )}
+                    {(a.param) && (
+                      <span className="text-muted-foreground text-xs font-mono">.{a.param}</span>
+                    )}
+                    {(a.expected != null || a.value != null) && (
+                      <span className="text-xs text-muted-foreground font-mono">= {JSON.stringify(a.expected ?? a.value)}</span>
+                    )}
+                    {a.required && (
+                      <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-warning/15 text-warning border border-warning/30 rounded-sm shrink-0 ml-auto">
+                        required
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
                   </div>
                 );
               })}
