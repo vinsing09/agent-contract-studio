@@ -293,6 +293,15 @@ export default function RegressionDashboard() {
             </div>
           )}
 
+          {/* Verdict line */}
+          <p className="text-sm font-medium mb-2">
+            {result.summary.regression_count > result.summary.improvement_count
+              ? "⚠️ Challenger is worse on net"
+              : result.summary.improvement_count > result.summary.regression_count
+              ? "✅ Challenger is better on net"
+              : "→ No net change"}
+          </p>
+
           {/* Summary counts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
             <SummaryCard label="HELD" count={result.summary.stable_count} color="emerald" />
