@@ -34,6 +34,15 @@ export default function AgentDetail() {
   const [generatingTests, setGeneratingTests] = useState(false);
   const [runningEval, setRunningEval] = useState(false);
 
+  const [showVersionPanel, setShowVersionPanel] = useState(true);
+  const [showNewVersionDrawer, setShowNewVersionDrawer] = useState(false);
+  const [creatingVersion, setCreatingVersion] = useState(false);
+  const [newVersionLabel, setNewVersionLabel] = useState("");
+  const [newVersionPrompt, setNewVersionPrompt] = useState("");
+  const [newVersionSchemas, setNewVersionSchemas] = useState("");
+  const [newVersionError, setNewVersionError] = useState("");
+  const [switchingVersion, setSwitchingVersion] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
