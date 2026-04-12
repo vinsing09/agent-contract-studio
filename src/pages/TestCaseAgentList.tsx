@@ -560,7 +560,7 @@ export default function TestCaseAgentList() {
                     <td className="px-3 py-2.5 text-center">
                       {(() => {
                         if (!tc.locked) return <span className="text-muted-foreground/50">—</span>;
-                        const lap = (tc as any).locked_at_pass;
+                        const lap = tc.locked_at_pass;
                         if (lap === 1) {
                            return (
                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/15 text-green-400 border border-green-500/30 rounded">

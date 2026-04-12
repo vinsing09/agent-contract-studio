@@ -29,6 +29,7 @@ export interface TestCase {
   assertions: Assertion[];
   tool_stubs: ToolStub[];
   locked: boolean;
+  locked_at_pass?: number | null;
   status?: "PASS" | "FAIL" | "PENDING";
 }
 
