@@ -4,7 +4,7 @@ import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalR
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
-  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle
+  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus
 } from "lucide-react";
 
 export default function AgentDetail() {
@@ -33,6 +33,15 @@ export default function AgentDetail() {
   const [contractStatus, setContractStatus] = useState("");
   const [generatingTests, setGeneratingTests] = useState(false);
   const [runningEval, setRunningEval] = useState(false);
+
+  const [showVersionPanel, setShowVersionPanel] = useState(true);
+  const [showNewVersionDrawer, setShowNewVersionDrawer] = useState(false);
+  const [creatingVersion, setCreatingVersion] = useState(false);
+  const [newVersionLabel, setNewVersionLabel] = useState("");
+  const [newVersionPrompt, setNewVersionPrompt] = useState("");
+  const [newVersionSchemas, setNewVersionSchemas] = useState("");
+  const [newVersionError, setNewVersionError] = useState("");
+  const [switchingVersion, setSwitchingVersion] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -157,6 +166,66 @@ export default function AgentDetail() {
     });
   };
 
+  const handleSwitchVersion = async (version: AgentVersion) => {
+    if (!id || version.id === activeVersion?.id) return;
+    setSwitchingVersion(true);
+    setActiveVersion(version);
+    try {
+      const [c, cases] = await Promise.all([
+        api.getContractV2(id, version.id).catch(() => null),
+        api.getTestCasesV2(id, version.id).catch(() => []),
+      ]);
+      setContract(c);
+      setTestCases(Array.isArray(cases) ? cases : []);
+    } catch {} finally {
+      setSwitchingVersion(false);
+    }
+  };
+
+  const handleCreateVersion = async () => {
+    if (!id || !newVersionLabel.trim()) return;
+    setCreatingVersion(true);
+    setNewVersionError("");
+    try {
+      let parsedSchemas = activeVersion?.tool_schemas || [];
+      if (newVersionSchemas.trim()) {
+        try { parsedSchemas = JSON.parse(newVersionSchemas); } catch {}
+      }
+      await api.createVersion(id, {
+        system_prompt: newVersionPrompt,
+        tool_schemas: parsedSchemas,
+        label: newVersionLabel,
+      });
+      const vList = await api.getAgentVersions(id);
+      const sorted = Array.isArray(vList) ? vList : [];
+      setVersions(sorted);
+      const latest = sorted.reduce((a, b) => a.version_number > b.version_number ? a : b);
+      setActiveVersion(latest);
+      const [c, cases] = await Promise.all([
+        api.getContractV2(id, latest.id).catch(() => null),
+        api.getTestCasesV2(id, latest.id).catch(() => []),
+      ]);
+      setContract(c);
+      setTestCases(Array.isArray(cases) ? cases : []);
+      setShowNewVersionDrawer(false);
+      setNewVersionLabel("");
+      setNewVersionPrompt("");
+      setNewVersionSchemas("");
+    } catch (err: any) {
+      setNewVersionError(err.message || "Failed to create version");
+    } finally {
+      setCreatingVersion(false);
+    }
+  };
+
+  const openNewVersionDrawer = () => {
+    setNewVersionPrompt(activeVersion?.system_prompt || agent?.system_prompt || "");
+    setNewVersionSchemas(JSON.stringify(activeVersion?.tool_schemas || agent?.tool_schemas || [], null, 2));
+    setNewVersionLabel("");
+    setNewVersionError("");
+    setShowNewVersionDrawer(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -240,6 +309,58 @@ export default function AgentDetail() {
               <p className="text-xs text-muted-foreground mt-1">
                 Version {activeVersion.version_number} · {activeVersion.source} · {new Date(activeVersion.created_at).toLocaleDateString()}
               </p>
+            )}
+          </div>
+
+          {/* Version Timeline */}
+          <div className="border border-border rounded bg-card">
+            <button
+              onClick={() => setShowVersionPanel(!showVersionPanel)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/30 transition-colors"
+            >
+              {showVersionPanel ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Versions</span>
+              <span className="text-[10px] font-mono text-muted-foreground ml-auto">{versions.length}</span>
+            </button>
+            {showVersionPanel && (
+              <div className="border-t border-border">
+                {switchingVersion && (
+                  <div className="flex items-center justify-center py-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                <div className="divide-y divide-border">
+                  {[...versions].sort((a, b) => a.version_number - b.version_number).map((v) => {
+                    const isActive = v.id === activeVersion?.id;
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => handleSwitchVersion(v)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/30 transition-colors ${isActive ? "bg-muted/20" : ""}`}
+                      >
+                        <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono rounded-full border ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"}`}>
+                          v{v.version_number}
+                        </span>
+                        <span className="text-sm text-foreground truncate flex-1">{v.label}</span>
+                        <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">{v.source}</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {new Date(v.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                        {isActive && <span className="text-[10px] text-muted-foreground">(active)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="px-3 py-2 border-t border-border">
+                  <button
+                    onClick={openNewVersionDrawer}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    New Version
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -463,6 +584,82 @@ export default function AgentDetail() {
                 {deleting && <Loader2 className="w-3 h-3 animate-spin" />}
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Version Drawer */}
+      {showNewVersionDrawer && (
+        <div className="fixed inset-0 z-50" onClick={() => setShowNewVersionDrawer(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className="absolute right-0 top-0 h-full w-[420px] max-w-full bg-card border-l border-border p-6 overflow-y-auto transform transition-transform duration-200 translate-x-0 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-semibold text-foreground">New Version</h3>
+              <button onClick={() => setShowNewVersionDrawer(false)} className="p-1 hover:bg-muted rounded transition-colors">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">
+              Changes will create a new version. The current version stays unchanged.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">What are you changing?</label>
+                <input
+                  value={newVersionLabel}
+                  onChange={(e) => setNewVersionLabel(e.target.value)}
+                  placeholder="e.g. Fixed escalation path"
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">System Prompt</label>
+                <textarea
+                  value={newVersionPrompt}
+                  onChange={(e) => setNewVersionPrompt(e.target.value)}
+                  rows={10}
+                  className="w-full px-3 py-2 text-sm font-mono bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1 block">Tool Schemas</label>
+                <p className="text-[10px] text-muted-foreground mb-1">Leave unchanged to keep current tool schemas</p>
+                <textarea
+                  value={newVersionSchemas}
+                  onChange={(e) => setNewVersionSchemas(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm font-mono bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                />
+              </div>
+
+              {newVersionError && (
+                <div className="px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {newVersionError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowNewVersionDrawer(false)}
+                  className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateVersion}
+                  disabled={!newVersionLabel.trim() || creatingVersion}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingVersion && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Create Version
+                </button>
+              </div>
             </div>
           </div>
         </div>

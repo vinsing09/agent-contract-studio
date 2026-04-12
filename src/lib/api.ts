@@ -267,4 +267,14 @@ export const api = {
       `/agents/${agentId}/versions/${versionId}/eval-runs`,
       { method: "POST", body: JSON.stringify({ run_type: "full" }) }
     ),
+
+  createVersion: (agentId: string, data: {
+    system_prompt: string;
+    tool_schemas: any[];
+    label: string;
+  }) =>
+    request<AgentVersion>(`/agents/${agentId}/versions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
