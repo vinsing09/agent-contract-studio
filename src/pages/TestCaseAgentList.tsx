@@ -167,8 +167,11 @@ export default function TestCaseAgentList() {
   // Bulk lock/unlock
   const bulkLock = async (ids: string[], intent: "protect" | "track") => {
     setBulkLocking(true);
+    setError("");
     const label = intent === "protect" ? "Protecting" : "Tracking";
     setBulkProgress({ current: 0, total: ids.length, label });
+    let succeeded = 0;
+    let failed = 0;
     for (let i = 0; i < ids.length; i++) {
       setBulkProgress({ current: i + 1, total: ids.length, label });
       try {
@@ -176,17 +179,23 @@ export default function TestCaseAgentList() {
         setAllTestCases((prev) =>
           prev.map((t) => (t.id === ids[i] ? { ...t, locked: true, locked_at_pass: intent === "protect" } : t))
         );
-      } catch (err: any) {
-        setError(`Failed to lock case ${i + 1}: ${parseApiError(err)}`);
+        succeeded++;
+      } catch {
+        failed++;
       }
     }
     setBulkLocking(false);
     setSelectedIds(new Set());
+    if (failed > 0) {
+      setError(`Locked ${succeeded} case${succeeded !== 1 ? "s" : ""}. ${failed} case${failed !== 1 ? "s" : ""} failed — they may need an eval run first.`);
+    }
   };
 
   const bulkUnlock = async (ids: string[]) => {
     setBulkLocking(true);
+    setError("");
     setBulkProgress({ current: 0, total: ids.length, label: "Unlocking" });
+    let failed = 0;
     for (let i = 0; i < ids.length; i++) {
       setBulkProgress({ current: i + 1, total: ids.length, label: "Unlocking" });
       try {
@@ -194,12 +203,15 @@ export default function TestCaseAgentList() {
         setAllTestCases((prev) =>
           prev.map((t) => (t.id === ids[i] ? { ...t, locked: false, locked_at_pass: undefined } : t))
         );
-      } catch (err: any) {
-        setError(`Failed to unlock case ${i + 1}: ${parseApiError(err)}`);
+      } catch {
+        failed++;
       }
     }
     setBulkLocking(false);
     setSelectedIds(new Set());
+    if (failed > 0) {
+      setError(`${failed} case${failed !== 1 ? "s" : ""} failed to unlock.`);
+    }
   };
 
   const unlocked = filteredCases.filter((tc) => !tc.locked);
