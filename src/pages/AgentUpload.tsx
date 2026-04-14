@@ -411,15 +411,16 @@ export default function AgentUpload() {
               );
               const isExpanded = expandedFixes.has(issue.id);
               const isRejected = fix ? rejectedFixIds.has(fix.id) : false;
-              const isAccepted = !isRejected;
+              const isReviewed = fix ? reviewedFixIds.has(fix.id) : false;
+              const isAccepted = isReviewed && !isRejected;
               return (
                 <div
                   key={issue.id}
                   className={`border rounded bg-card overflow-hidden transition-colors ${
                     fix && isRejected
                       ? "border-red-500/30 opacity-50"
-                      : fix
-                      ? "border-emerald-500/30"
+                      : fix && isAccepted
+                      ? "border-emerald-500/30 bg-emerald-500/5"
                       : "border-border"
                   }`}
                 >
@@ -464,7 +465,7 @@ export default function AgentUpload() {
                         </div>
                       )}
                     </div>
-                    <p className={`text-sm ${!isAccepted ? "text-muted-foreground/50 line-through" : "text-foreground"}`}>
+                    <p className={`text-sm ${isRejected ? "text-muted-foreground/50 line-through" : "text-foreground"}`}>
                       {issue.description}
                     </p>
                   </div>
@@ -485,18 +486,18 @@ export default function AgentUpload() {
 
                       {isExpanded && (
                         <div className={`px-4 pb-3 border-t pt-3 space-y-3 transition-colors ${
-                          !isAccepted
+                          isRejected
                             ? "border-destructive/30 bg-destructive/5"
                             : "border-border"
                         }`}>
                           <p className={`text-sm italic ${
-                            !isAccepted
+                            isRejected
                               ? "text-muted-foreground/50 line-through"
                               : "text-muted-foreground"
                           }`}>
                             {fix.description}
                           </p>
-                          <div className={!isAccepted ? "opacity-50 line-through decoration-destructive/50" : ""}>
+                          <div className={isRejected ? "opacity-50 line-through decoration-destructive/50" : ""}>
                             <CodeBlock label="Prompt Patch">
                               {fix.prompt_patch}
                             </CodeBlock>
