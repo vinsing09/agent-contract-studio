@@ -515,10 +515,15 @@ export default function AgentUpload() {
           {/* Summary & Action */}
           <div className="space-y-3 pt-2">
             {totalFixes > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {acceptedCount} fix{acceptedCount !== 1 ? "es" : ""} accepted,{" "}
-                {rejectedCount} rejected
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {reviewedFixIds.size} of {totalFixes} fixes reviewed
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {acceptedCount} fix{acceptedCount !== 1 ? "es" : ""} accepted,{" "}
+                  {rejectedCount} rejected
+                </p>
+              </div>
             )}
 
             {error && (
