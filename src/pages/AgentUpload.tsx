@@ -419,8 +419,8 @@ export default function AgentUpload() {
                   className={`border rounded bg-card overflow-hidden transition-colors ${
                     fix && isRejected
                       ? "border-red-500/30 opacity-50"
-                      : fix
-                      ? "border-emerald-500/30"
+                      : fix && isAccepted
+                      ? "border-emerald-500/30 bg-emerald-500/5"
                       : "border-border"
                   }`}
                 >
