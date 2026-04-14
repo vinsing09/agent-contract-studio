@@ -486,18 +486,18 @@ export default function AgentUpload() {
 
                       {isExpanded && (
                         <div className={`px-4 pb-3 border-t pt-3 space-y-3 transition-colors ${
-                          !isAccepted
+                          isRejected
                             ? "border-destructive/30 bg-destructive/5"
                             : "border-border"
                         }`}>
                           <p className={`text-sm italic ${
-                            !isAccepted
+                            isRejected
                               ? "text-muted-foreground/50 line-through"
                               : "text-muted-foreground"
                           }`}>
                             {fix.description}
                           </p>
-                          <div className={!isAccepted ? "opacity-50 line-through decoration-destructive/50" : ""}>
+                          <div className={isRejected ? "opacity-50 line-through decoration-destructive/50" : ""}>
                             <CodeBlock label="Prompt Patch">
                               {fix.prompt_patch}
                             </CodeBlock>
