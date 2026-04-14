@@ -531,7 +531,7 @@ export default function AgentUpload() {
             )}
 
             {(() => {
-              const allReviewed = reviewedFixIds.size >= totalFixes;
+              const allReviewed = reviewedFixIds.size === totalFixes;
               const remaining = totalFixes - reviewedFixIds.size;
               return (
                 <>
