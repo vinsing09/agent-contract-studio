@@ -153,13 +153,7 @@ export default function AgentUpload() {
     }
   };
 
-  const markReviewed = (fixId: string) => {
-    setReviewedFixIds((prev) => {
-      const next = new Set(prev);
-      next.add(fixId);
-      return next;
-    });
-  };
+  // markReviewed is now inlined in acceptFix/rejectFix
 
   const acceptFix = (fixId: string) => {
     console.log("[AcceptFix] fixId:", fixId);
