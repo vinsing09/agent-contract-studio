@@ -411,7 +411,8 @@ export default function AgentUpload() {
               );
               const isExpanded = expandedFixes.has(issue.id);
               const isRejected = fix ? rejectedFixIds.has(fix.id) : false;
-              const isAccepted = !isRejected;
+              const isReviewed = fix ? reviewedFixIds.has(fix.id) : false;
+              const isAccepted = isReviewed && !isRejected;
               return (
                 <div
                   key={issue.id}
