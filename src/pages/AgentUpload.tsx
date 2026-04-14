@@ -201,9 +201,13 @@ export default function AgentUpload() {
     return "bg-muted text-muted-foreground border-border";
   };
 
-  const totalFixes = auditReport?.suggested_fixes?.length ?? 0;
-  const acceptedCount = totalFixes - rejectedFixIds.size;
-  const rejectedCount = rejectedFixIds.size;
+  const reviewableFixes = (auditReport?.issues ?? []).flatMap((issue) => {
+    const fix = auditReport?.suggested_fixes?.find((f) => f.issue_id === issue.id);
+    return fix ? [fix] : [];
+  });
+  const totalFixes = reviewableFixes.length;
+  const acceptedCount = reviewableFixes.filter((fix) => !rejectedFixIds.has(fix.id)).length;
+  const rejectedCount = reviewableFixes.filter((fix) => rejectedFixIds.has(fix.id)).length;
 
   return (
     <div className="px-6 py-8 max-w-[680px] mx-auto animate-fade-in">
@@ -527,7 +531,7 @@ export default function AgentUpload() {
             )}
 
             {(() => {
-              const allReviewed = reviewedFixIds.size >= totalFixes;
+              const allReviewed = reviewedFixIds.size === totalFixes;
               const remaining = totalFixes - reviewedFixIds.size;
               return (
                 <>
