@@ -153,30 +153,36 @@ export default function AgentUpload() {
     }
   };
 
-  const markReviewed = (fixId: string) => {
-    setReviewedFixIds((prev) => {
-      const next = new Set(prev);
-      next.add(fixId);
-      return next;
-    });
-  };
+  // markReviewed is now inlined in acceptFix/rejectFix
 
   const acceptFix = (fixId: string) => {
+    console.log("[AcceptFix] fixId:", fixId);
     setRejectedFixIds((prev) => {
       const next = new Set(prev);
       next.delete(fixId);
       return next;
     });
-    markReviewed(fixId);
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      console.log("[AcceptFix] reviewedFixIds size:", next.size);
+      return next;
+    });
   };
 
   const rejectFix = (fixId: string) => {
+    console.log("[RejectFix] fixId:", fixId);
     setRejectedFixIds((prev) => {
       const next = new Set(prev);
       next.add(fixId);
       return next;
     });
-    markReviewed(fixId);
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      console.log("[RejectFix] reviewedFixIds size:", next.size);
+      return next;
+    });
   };
 
   const toggleExpandFix = (issueId: string) => {
@@ -503,10 +509,15 @@ export default function AgentUpload() {
           {/* Summary & Action */}
           <div className="space-y-3 pt-2">
             {totalFixes > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {acceptedCount} fix{acceptedCount !== 1 ? "es" : ""} accepted,{" "}
-                {rejectedCount} rejected
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {reviewedFixIds.size} of {totalFixes} fixes reviewed
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {acceptedCount} fix{acceptedCount !== 1 ? "es" : ""} accepted,{" "}
+                  {rejectedCount} rejected
+                </p>
+              </div>
             )}
 
             {error && (
