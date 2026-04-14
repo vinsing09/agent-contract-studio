@@ -465,7 +465,7 @@ export default function AgentUpload() {
                         </div>
                       )}
                     </div>
-                    <p className={`text-sm ${!isAccepted ? "text-muted-foreground/50 line-through" : "text-foreground"}`}>
+                    <p className={`text-sm ${isRejected ? "text-muted-foreground/50 line-through" : "text-foreground"}`}>
                       {issue.description}
                     </p>
                   </div>
