@@ -162,21 +162,33 @@ export default function AgentUpload() {
   };
 
   const acceptFix = (fixId: string) => {
+    console.log("[AcceptFix] fixId:", fixId);
     setRejectedFixIds((prev) => {
       const next = new Set(prev);
       next.delete(fixId);
       return next;
     });
-    markReviewed(fixId);
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      console.log("[AcceptFix] reviewedFixIds size:", next.size);
+      return next;
+    });
   };
 
   const rejectFix = (fixId: string) => {
+    console.log("[RejectFix] fixId:", fixId);
     setRejectedFixIds((prev) => {
       const next = new Set(prev);
       next.add(fixId);
       return next;
     });
-    markReviewed(fixId);
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      console.log("[RejectFix] reviewedFixIds size:", next.size);
+      return next;
+    });
   };
 
   const toggleExpandFix = (issueId: string) => {
