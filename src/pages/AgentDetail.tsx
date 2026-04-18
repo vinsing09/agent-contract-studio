@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, ApiError, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
-import type { ContractV2 } from "@/lib/types";
+import type { ContractV2, Suggestion } from "@/lib/types";
 import ContractPanel from "@/components/contract/ContractPanel";
 import { RegenerateContractDialog } from "@/components/contract/RegenerateContractDialog";
+import { SuggestionCard } from "@/components/improvements/SuggestionCard";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
-  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus, Sparkles, Check, FileJson
+  FileText, ListChecks, PlayCircle, CheckCircle2, X, Plus, Sparkles, FileJson
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -47,7 +48,7 @@ export default function AgentDetail() {
   const [switchingVersion, setSwitchingVersion] = useState(false);
 
   const [showImprovements, setShowImprovements] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [acceptedSuggestionIds, setAcceptedSuggestionIds] = useState<Set<string>>(new Set());
   const [rejectedSuggestionIds, setRejectedSuggestionIds] = useState<Set<string>>(new Set());
@@ -250,7 +251,7 @@ export default function AgentDetail() {
     try {
       const result = await api.getSuggestions(id, activeVersion.id, latestRun.id);
       setSuggestions(result.suggestions);
-      const allIds = new Set(result.suggestions.map((s: any) => s.id));
+      const allIds = new Set(result.suggestions.map((s) => s.id));
       setAcceptedSuggestionIds(allIds);
       setRejectedSuggestionIds(new Set());
       setReviewedSuggestionIds(new Set(allIds));
@@ -278,11 +279,23 @@ export default function AgentDetail() {
     setApplyingFixes(true);
     setImprovementError("");
     try {
-      const accepted = suggestions.filter(s => !rejectedSuggestionIds.has(s.id)).map(s => s.id);
+      const acceptedIds = suggestions
+        .filter((s) => !rejectedSuggestionIds.has(s.id))
+        .map((s) => s.id);
+
+      const acceptedPatches: Record<string, string> = {};
+      for (const s of suggestions) {
+        if (!rejectedSuggestionIds.has(s.id) && s.prompt_patch) {
+          acceptedPatches[s.id] = s.prompt_patch;
+        }
+      }
+
       await api.applySuggestions(id, activeVersion.id, {
-        accepted_fix_ids: accepted,
+        accepted_fix_ids: acceptedIds,
         eval_run_id: latestRun.id,
         label: "Improved from eval results",
+        accepted_patches:
+          Object.keys(acceptedPatches).length > 0 ? acceptedPatches : undefined,
       });
       const vList = await api.getAgentVersions(id);
       const sorted = Array.isArray(vList) ? vList : [];
@@ -732,55 +745,16 @@ export default function AgentDetail() {
               {!loadingSuggestions && suggestions.length > 0 && (
                 <>
                   <div className="space-y-3">
-                    {suggestions.map((s: any) => {
-                      const isAccepted = acceptedSuggestionIds.has(s.id);
-                      const isRejected = rejectedSuggestionIds.has(s.id);
-                      return (
-                        <div key={s.id} className="border border-border rounded bg-background p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleAcceptSuggestion(s.id)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm border transition-colors ${
-                                isAccepted
-                                  ? "bg-success/15 text-success border-success/30"
-                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                              }`}
-                            >
-                              <Check className="w-3 h-3" />
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleRejectSuggestion(s.id)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm border transition-colors ${
-                                isRejected
-                                  ? "bg-destructive/15 text-destructive border-destructive/30"
-                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                              }`}
-                            >
-                              <XCircle className="w-3 h-3" />
-                              Reject
-                            </button>
-                          </div>
-                          <p className="text-sm font-semibold text-foreground">{s.failure_pattern}</p>
-                          <p className="text-xs text-muted-foreground">{s.description}</p>
-                          {s.prompt_patch && (
-                            <pre className="p-2 text-xs font-mono bg-muted/50 border border-border rounded overflow-x-auto max-w-full text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                              <code>{s.prompt_patch}</code>
-                            </pre>
-                          )}
-                          {s.affected_cases && s.affected_cases.length > 0 && (
-                            <div className="flex flex-wrap gap-1 items-center">
-                              <span className="text-[10px] text-muted-foreground">Affects {s.affected_cases.length} cases:</span>
-                              {s.affected_cases.map((c: any, i: number) => (
-                                <span key={i} className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
-                                  {typeof c === "string" ? c : c.scenario || c.name || c.id}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {suggestions.map((s) => (
+                      <SuggestionCard
+                        key={s.id}
+                        suggestion={s}
+                        accepted={acceptedSuggestionIds.has(s.id)}
+                        rejected={rejectedSuggestionIds.has(s.id)}
+                        onAccept={() => handleAcceptSuggestion(s.id)}
+                        onReject={() => handleRejectSuggestion(s.id)}
+                      />
+                    ))}
                   </div>
 
                   <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Box, ListChecks, ShieldCheck } from "lucide-react";
+import { Box, ListChecks, PlayCircle, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 
 const LAST_AGENT_KEY = "agentops:last-agent-id";
@@ -52,6 +52,12 @@ export function AppSidebar() {
       active:
         path.startsWith("/test-cases") ||
         /^\/agents\/[^/]+\/test-cases\//.test(path),
+    },
+    {
+      label: "Eval Runs",
+      path: "/eval-runs",
+      icon: PlayCircle,
+      active: path.startsWith("/eval-runs"),
     },
     {
       label: "Behavioral Check",

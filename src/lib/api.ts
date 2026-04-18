@@ -3,6 +3,9 @@ import type {
   ContractV2,
   TestCaseV2,
   GenerateTestCasesResponse,
+  Suggestion,
+  ApplySuggestionsRequest,
+  ApplySuggestionsResponse,
 } from "./types";
 
 const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
@@ -339,19 +342,20 @@ export const api = {
   getEvalRunDetail: (runId: string) =>
     request<any>(`/eval-runs/${runId}`),
 
-  getSuggestions: (agentId: string, versionId: string, evalRunId: string) =>
-    request<{ suggestions: any[] }>(
-      `/agents/${agentId}/versions/${versionId}/improvements?eval_run_id=${evalRunId}`,
+  getSuggestions: (
+    agentId: string,
+    versionId: string,
+    evalRunId: string,
+    mode: "standard" | "deep" = "standard"
+  ) =>
+    request<{ suggestions: Suggestion[]; mode: "standard" | "deep" }>(
+      `/agents/${agentId}/versions/${versionId}/improvements?eval_run_id=${evalRunId}&mode=${mode}`,
       { method: "POST" }
     ),
 
-  applySuggestions: (agentId: string, versionId: string, data: {
-    accepted_fix_ids: string[];
-    eval_run_id: string;
-    label: string;
-  }) =>
-    request<any>(
+  applySuggestions: (agentId: string, versionId: string, body: ApplySuggestionsRequest) =>
+    request<ApplySuggestionsResponse>(
       `/agents/${agentId}/versions/${versionId}/improvements/apply`,
-      { method: "POST", body: JSON.stringify(data) }
+      { method: "POST", body: JSON.stringify(body) }
     ),
 };
