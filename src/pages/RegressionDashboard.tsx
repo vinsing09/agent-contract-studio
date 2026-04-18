@@ -8,6 +8,7 @@ import {
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Check, X, Info } from "lucide-react";
 import { parseApiError } from "@/lib/utils";
 import { RegressionTypeBadge } from "@/components/regression/RegressionTypeBadge";
+import { NoProgressSection } from "@/components/regression/NoProgressSection";
 
 export default function RegressionDashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -330,23 +331,10 @@ export default function RegressionDashboard() {
               </div>
             )}
 
-            {result.summary.no_progress_count > 0 && (
-              <div className="bg-card border border-border rounded border-l-2 border-l-muted-foreground/30 p-4">
-                <h3 className="text-sm font-semibold text-muted-foreground mb-3">
-                  NO CHANGE — {result.summary.no_progress_count} cases still failing
-                </h3>
-                {result.no_progress && result.no_progress.length > 0 && (
-                  <div className="space-y-1.5">
-                    {result.no_progress.map((np) => (
-                      <div key={np.test_case_id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <X className="w-3.5 h-3.5" />
-                        {np.scenario}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <NoProgressSection
+              count={result.summary.no_progress_count}
+              cases={result.no_progress}
+            />
           </div>
 
           {/* Footer */}
