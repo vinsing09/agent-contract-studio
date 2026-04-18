@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
+import { api, ApiError, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
+import type { ContractV2 } from "@/lib/types";
+import ContractPanel from "@/components/contract/ContractPanel";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
@@ -544,53 +546,16 @@ export default function AgentDetail() {
                 <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">NONE</span>
               )}
             </div>
-            {hasContract && contract && (
-              <div className="space-y-3">
-                {obligations.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Obligations</p>
-                    <ol className="space-y-1.5 list-decimal list-inside">
-                      {obligations.map((ob: any, i: number) => (
-                        <li key={isV2Obligations ? ob.id : i} className="text-sm text-foreground">
-                          {isV2Obligations ? (
-                            <span className="inline-flex items-center gap-2">
-                              <span>{ob.text}</span>
-                              <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${sourceColors[ob.source] || sourceColors.behavioral}`}>
-                                {ob.source}
-                              </span>
-                            </span>
-                          ) : (
-                            ob
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-                {contract.tool_stubs && Object.keys(contract.tool_stubs).length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</p>
-                    <div className="space-y-1">
-                      {Object.entries(contract.tool_stubs).map(([toolName, stub]) => (
-                        <div key={toolName} className="border border-border rounded">
-                          <button
-                            onClick={() => toggleStub(toolName)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-muted/30 transition-colors"
-                          >
-                            {expandedStubs.has(toolName) ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
-                            <span className="font-mono text-foreground">{toolName}</span>
-                          </button>
-                          {expandedStubs.has(toolName) && (
-                            <div className="border-t border-border">
-                              <CodeBlock>{JSON.stringify(stub, null, 2)}</CodeBlock>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+            {activeVersion && id && (
+              <ContractPanel
+                agentId={id}
+                versionId={activeVersion.id}
+                contract={
+                  contract && Array.isArray(contract.tool_sequences)
+                    ? (contract as ContractV2)
+                    : null
+                }
+              />
             )}
           </section>
 

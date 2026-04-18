@@ -1,4 +1,4 @@
-import type { AgentSchema } from "./types";
+import type { AgentSchema, ContractV2 } from "./types";
 
 const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
 
@@ -286,13 +286,13 @@ export const api = {
     request<AgentSchema>(`/agents/${agentId}/schema`),
 
   generateContractV2: (agentId: string, versionId: string) =>
-    request<any>(
+    request<ContractV2>(
       `/agents/${agentId}/versions/${versionId}/contract/generate`,
       { method: "POST" }
     ),
 
   getContractV2: (agentId: string, versionId: string) =>
-    request<any>(`/agents/${agentId}/versions/${versionId}/contract`),
+    request<ContractV2>(`/agents/${agentId}/versions/${versionId}/contract`),
 
   generateTestCasesV2: (agentId: string, versionId: string) =>
     request<any>(
