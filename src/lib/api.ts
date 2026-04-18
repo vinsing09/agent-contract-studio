@@ -1,3 +1,5 @@
+import type { AgentSchema } from "./types";
+
 const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
 
 export interface Agent {
@@ -275,11 +277,13 @@ export const api = {
   getAgentVersions: (agentId: string) =>
     request<AgentVersion[]>(`/agents/${agentId}/versions`),
 
-  extractSchema: (agentId: string) =>
-    request<any>(`/agents/${agentId}/schema/extract`, { method: "POST" }),
+  extractSchema: (agentId: string, versionId?: string) => {
+    const qs = versionId ? `?version_id=${versionId}` : "";
+    return request<AgentSchema>(`/agents/${agentId}/schema/extract${qs}`, { method: "POST" });
+  },
 
   getSchema: (agentId: string) =>
-    request<any>(`/agents/${agentId}/schema`),
+    request<AgentSchema>(`/agents/${agentId}/schema`),
 
   generateContractV2: (agentId: string, versionId: string) =>
     request<any>(

@@ -4,8 +4,9 @@ import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalR
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
-  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus, Sparkles, Check
+  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus, Sparkles, Check, FileJson
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -408,6 +409,20 @@ export default function AgentDetail() {
               <p className="text-xs text-muted-foreground mt-1">
                 Version {activeVersion.version_number} · {activeVersion.source} · {new Date(activeVersion.created_at).toLocaleDateString()}
               </p>
+            )}
+            {activeVersion && (
+              <div className="mt-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    to={`/agents/${id}/versions/${activeVersion.id}/schema`}
+                    aria-label="Open schema viewer"
+                    className="text-[13px]"
+                  >
+                    <FileJson className="w-3.5 h-3.5 mr-1.5" />
+                    Schema
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
 

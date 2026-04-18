@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import AgentUpload from "@/pages/AgentUpload";
 import AgentList from "@/pages/AgentList";
 import AgentDetail from "@/pages/AgentDetail";
+import AgentSchema from "@/pages/AgentSchema";
 
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
@@ -19,6 +21,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
+      <Toaster />
       <BrowserRouter>
         <AppLayout>
           <Routes>
@@ -26,6 +29,7 @@ const App = () => (
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:id" element={<AgentDetail />} />
+            <Route path="/agents/:agentId/versions/:versionId/schema" element={<AgentSchema />} />
             
             <Route path="/test-cases" element={<TestCaseAgentList />} />
             
