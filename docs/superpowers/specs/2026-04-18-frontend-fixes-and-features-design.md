@@ -112,9 +112,9 @@ Auth, theming, i18n, analytics, full mobile responsive overhaul, real-time updat
     - `expected_output: string` (textarea, required)
     - `obligation_ids: string[]` (multi-select from contract's obligations — fetch via `getContractV2`)
     - `tags: string[]` (free-form chips input)
-  - Submit: `POST /agents/{id}/versions/{vid}/test-cases` (or V1 fallback if V2 absent), invalidate `['test-cases', agentId, versionId]`, toast, navigate back to list
+  - Submit: `POST /agents/{id}/versions/{vid}/test-cases`, invalidate `['test-cases', agentId, versionId]`, toast, navigate back to list
 
-**API wrapper:** `createTestCase(agentId, versionId, payload)`. **🚧 Verify route exists.** If absent, backend ask: `POST /agents/{id}/versions/{vid}/test-cases` body `{input, expected_output, obligation_ids, tags}` returns created `TestCase`.
+**API wrapper:** `createTestCase(agentId, versionId, payload)`. **🚧 Verify route exists** (V1 fallback NOT used per §1.9 — if V2 route absent, file as backend ask: `POST /agents/{id}/versions/{vid}/test-cases` body `{input, expected_output, obligation_ids, tags}` returns created `TestCase`).
 
 ### Phase A blockers
 
