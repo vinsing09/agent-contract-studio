@@ -1027,3 +1027,16 @@ Run all of these in the browser before declaring Phase A complete:
 7. **Build:** `npm run build` exits 0 with no TypeScript errors.
 
 If all pass, Phase A is shipped. Move to Plan B.
+
+---
+
+## Design review (2026-04-18, text-only — mockups skipped)
+
+Full review: `docs/superpowers/reviews/2026-04-18-plan-design-review.md`. Pre-ship edits affecting this plan:
+
+- **Task 1 (sidebar IA, Q1):** Decide 4-item root vs. agent-scoped tabs. Recommendation = tabs inside `AgentDetail` (Option B). Remove Test Cases sidebar addition if Option B.
+- **Task 3 (ContractPanel deep-link fragility, Finding 1.2):** On mount, if `location.hash` matches `#obligation-*`, force-expand the contract panel AND the Obligations card BEFORE `scrollIntoView`.
+- **Task 4 (regenerate banner, Finding 1.4 / 3.2):** Add dismissable banner on `AgentDetail` eval section when `contract_hash` has drifted since last eval.
+- **Task 5 (progress UI, Finding 2.1):** Indeterminate progress bar, "usually 30-60s, don't close this tab", 45s escalation copy, no cancel button.
+
+Parent-spec §1 additions (design tokens, badge variants, button label case, icon-only a11y) must land before these.

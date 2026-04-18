@@ -34,6 +34,38 @@ Auth, theming, i18n, analytics, full mobile responsive overhaul, real-time updat
 9. **No V1 dead code.** When a page is rewritten to V2, V1 wrappers in `api.ts` are deleted in the same hand-off.
 10. **404 from per-version fetches** → "This version no longer exists" empty state with link back to agent detail. No hard redirect.
 
+### 1.1 — Design tokens (added by 2026-04-18 design review)
+
+Live-code conventions — all new components must follow these:
+
+- **Type scale:** `text-[13px]` body, `text-[11px]` meta, `text-[10px]` micro labels. Never `text-sm`/`text-xs`.
+- **Colors:** shadcn semantic tokens only (`primary`, `muted`, `destructive`, `secondary`, `foreground`, `background`, `border`, `ring`). Never raw Tailwind colors (`bg-purple-500`, `text-blue-600`).
+- **Card styling:** `rounded-md` (not `rounded-lg`), `border` (1px), `p-3` to `p-4` (not `p-6`), no shadow unless hover-elevated.
+- **Spacing:** 3/4 (12/16px) dominant. Avoid 6/8 (24/32px).
+- **Borders:** 1px default. Only 2px for the active sidebar left-border accent.
+- **Button label case:** sentence case, not title case ("Regenerate contract", not "Regenerate Contract").
+- **Icon-only buttons:** `aria-label="{action verb}"` required.
+
+### 1.2 — Badge convention (added by 2026-04-18 design review)
+
+Cap total distinct badge styles at 5:
+
+- **Neutral-info** (category labels, source, obligation tags): `variant="secondary"` + `text-[10px]` + `font-normal`.
+- **Status-success** (STABLE, passed): `variant="outline"` with success color.
+- **Status-warning** (NO_PROGRESS, medium risk): `variant="outline"` with amber/warning color.
+- **Status-danger** (REGRESSION, failed, high risk): `variant="destructive"`.
+- **Status-positive-action** (IMPROVEMENT): `variant="outline"` with `text-primary`.
+
+### 1.3 — Empty state icon registry (added by 2026-04-18 design review)
+
+- Schema → `FileJson`
+- Contract → `FileText`
+- Test cases → `ListChecks`
+- Eval runs → `Activity`
+- Suggestions → `Lightbulb`
+- Version diff → `GitCompare`
+- Regressions → `Target`
+
 ---
 
 ## 2 — Phase A: Author

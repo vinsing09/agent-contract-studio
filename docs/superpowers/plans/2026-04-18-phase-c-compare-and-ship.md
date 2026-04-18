@@ -1119,3 +1119,20 @@ Run all of these in the browser before declaring Phase C complete:
 ## Phase C blockers (carried to follow-up)
 
 - **C.4 `no_progress[]` array:** `routers/regression_v2.py:229-237` does not return the per-case array yet. Frontend ships scaffold; rows render once backend lands the field. Documented in spec §5.4.
+
+---
+
+## Design review (2026-04-18, text-only — mockups skipped)
+
+Full review: `docs/superpowers/reviews/2026-04-18-plan-design-review.md`. Pre-ship edits affecting this plan:
+
+- **Task 1 (`RegressionTypeBadge`, Findings 4.1 + 5.2 + 6.3):**
+  - Map 4 regression types to shadcn semantic tokens, not raw colors: STABLE=`muted`, REGRESSION=`destructive`, IMPROVEMENT=`primary`/success, NO_PROGRESS=`secondary`/amber.
+  - Filter chips keyboard + ARIA: Tab focuses each, Space/Enter toggles, `role="button" aria-pressed={active}`.
+- **Task 3 (`VersionDiff`, Findings 3.3 + 6.1 + Q3):**
+  - Add 3-line summary strip above tabs (prompt delta, contract delta, eval pass-rate delta).
+  - Minimum viable width 1024px. Below: single-screen fallback message, don't break layout.
+  - Support `?tab=prompt|schema|contract|eval` URL param override; default stays `eval`.
+- **Task 4 (`no_progress` scaffold, Finding Q7):** Ship feature-flagged OFF entirely until backend lands the per-case array. No visible "coming soon" empty state. Remove the amber section from end-of-phase smoke item #13 until the flag is on.
+
+Parent-spec §1 design-token additions must land before these.

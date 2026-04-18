@@ -944,3 +944,19 @@ Run all of these in the browser before declaring Phase B complete:
 ## Phase B blockers (carried to follow-up)
 
 - **B.5 cross-version badge in list:** `GET /eval-runs` returns `EvalRun[]` without `agent_version_id` or `test_case_source_version_id`. Adding a "cross-version" badge column on the list requires the backend to extend the legacy `EvalRun` model — not in scope for this plan. Documented in spec §5.4.
+
+---
+
+## Design review (2026-04-18, text-only — mockups skipped)
+
+Full review: `docs/superpowers/reviews/2026-04-18-plan-design-review.md`. Pre-ship edits affecting this plan:
+
+- **Task 1 (suggestions, Finding 2.2):** Accept/reject on a suggestion is silent — NO per-click toast. Only the final Apply action fires a toast. Add to acceptance criteria.
+- **Task 3 (EvalRunSummaryCard, Findings 1.4 + 2.3 + 3.3):**
+  - Tile priority order (1-7): Pass rate, Total, Passed, Failed, Deterministic pass rate, Semantic pass rate, Avg latency. Tiles render only when data exists.
+  - Grid wrap: `sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7`.
+  - Add "Ran against contract v{hash-8}" badge + warning bubble if hash drifts.
+- **Task 4 (deep mode, Findings 2.1 + Q5):** Standard = default tab; Deep = opt-in. Indeterminate progress bar, expected-range copy ("usually 60-90s"), 45s+90s escalation copy, no cancel.
+- **Task 5 (new eval run, Finding 2.1):** Same progress-UI pattern as above for the 30-60s wait.
+
+Parent-spec §1 design-token additions must land before these.
