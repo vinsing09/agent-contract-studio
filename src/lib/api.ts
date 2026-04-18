@@ -291,6 +291,12 @@ export const api = {
       { method: "POST" }
     ),
 
+  regenerateContract: (agentId: string, versionId: string) =>
+    request<ContractV2>(
+      `/agents/${agentId}/versions/${versionId}/contract/generate`,
+      { method: "POST" }
+    ),
+
   getContractV2: (agentId: string, versionId: string) =>
     request<ContractV2>(`/agents/${agentId}/versions/${versionId}/contract`),
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, ApiError, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
 import type { ContractV2 } from "@/lib/types";
 import ContractPanel from "@/components/contract/ContractPanel";
+import { RegenerateContractDialog } from "@/components/contract/RegenerateContractDialog";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
@@ -589,6 +590,13 @@ export default function AgentDetail() {
                 <span className="font-mono">{passedCaseCount}/{totalCaseCount} cases passed ({passRate}%)</span>
                 <span>{new Date(latestRun.started_at).toLocaleDateString()}</span>
               </div>
+              {contract?.created_at && latestRun.started_at &&
+                new Date(latestRun.started_at) < new Date(contract.created_at) && (
+                <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 text-[11px] bg-warning/10 border border-warning/30 rounded text-foreground">
+                  <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
+                  Contract has changed since this run. Re-run eval to re-baseline.
+                </div>
+              )}
             </section>
           )}
 
@@ -631,20 +639,34 @@ export default function AgentDetail() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleGenerateContract}
-              disabled={hasContract || generatingContract || !activeVersion}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
-            >
-              {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {hasContract ? (
-                <><CheckCircle2 className="w-3.5 h-3.5 text-success" /> Contract Generated</>
-              ) : generatingContract ? (
-                contractStatus
-              ) : (
-                "Generate Contract"
-              )}
-            </button>
+            {hasContract && id && activeVersion ? (
+              <RegenerateContractDialog
+                agentId={id}
+                versionId={activeVersion.id}
+                onSuccess={async () => {
+                  if (!id || !activeVersion) return;
+                  const c = await api.getContractV2(id, activeVersion.id).catch(() => null);
+                  setContract(c);
+                }}
+                trigger={
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97]"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                    Regenerate contract
+                  </button>
+                }
+              />
+            ) : (
+              <button
+                onClick={handleGenerateContract}
+                disabled={generatingContract || !activeVersion}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
+              >
+                {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {generatingContract ? contractStatus : "Generate contract"}
+              </button>
+            )}
             {hasTests ? (
               <Link
                 to={`/test-cases?agent_id=${id}${activeVersion ? `&version_id=${activeVersion.id}` : ''}`}
