@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { parseApiError } from "@/lib/utils";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, type Agent, type AgentVersion, type EvalRun, type EvalResult } from "@/lib/api";
+import type { ObligationV2 } from "@/lib/types";
 import { TagBadge } from "@/components/ui-shared";
 import {
   Box,
@@ -86,6 +87,8 @@ export default function TestCaseAgentList() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [obligationsByVersion, setObligationsByVersion] = useState<Record<string, ObligationV2[]>>({});
+  const [obligationFilter, setObligationFilter] = useState<string>("all");
   const [bulkLocking, setBulkLocking] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, label: "" });
   const [smartLockSummary, setSmartLockSummary] = useState<string | null>(null);
@@ -96,6 +99,7 @@ export default function TestCaseAgentList() {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setObligationFilter("all");
   }, [selectedFilter]);
 
   // Parse selectedFilter into agentId / versionId
@@ -106,6 +110,21 @@ export default function TestCaseAgentList() {
     return { agentId: null, versionId: null };
   };
   const { agentId: selectedAgentId, versionId: selectedVersionId } = parseFilter(selectedFilter);
+
+  useEffect(() => {
+    if (!selectedAgentId || !selectedVersionId || selectedVersionId === "legacy") return;
+    if (obligationsByVersion[selectedVersionId]) return;
+    api.getContractV2(selectedAgentId, selectedVersionId)
+      .then((c) => {
+        setObligationsByVersion((prev) => ({
+          ...prev,
+          [selectedVersionId]: (c?.obligations ?? []) as ObligationV2[],
+        }));
+      })
+      .catch(() => {
+        setObligationsByVersion((prev) => ({ ...prev, [selectedVersionId]: [] }));
+      });
+  }, [selectedAgentId, selectedVersionId]);
 
   const loadAll = async () => {
     try {
@@ -185,10 +204,23 @@ export default function TestCaseAgentList() {
     }
   };
 
-  const filteredCases =
+  const versionFiltered =
     selectedFilter === "all"
       ? allTestCases
       : allTestCases.filter((tc) => tc._agent_id === selectedAgentId && tc._version_id === selectedVersionId);
+
+  const filteredCases =
+    obligationFilter === "all"
+      ? versionFiltered
+      : versionFiltered.filter((tc) =>
+          Array.isArray(tc.obligation_ids) && tc.obligation_ids.includes(obligationFilter)
+        );
+
+  const activeObligations: ObligationV2[] =
+    selectedVersionId && obligationsByVersion[selectedVersionId]
+      ? obligationsByVersion[selectedVersionId]
+      : [];
+  const obligationTextById = new Map(activeObligations.map((o) => [o.id, o]));
 
   const latestEvalRun = selectedAgentId ? latestEvalRunByAgent[selectedAgentId] ?? null : null;
   const isAgentFiltered = selectedFilter !== "all";
@@ -464,7 +496,7 @@ export default function TestCaseAgentList() {
             {selectedFilter !== "all" ? " (filtered)" : " across all agents"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <Select value={selectedFilter} onValueChange={setSelectedFilter}>
             <SelectTrigger className="h-9 w-[300px] text-sm">
@@ -493,6 +525,23 @@ export default function TestCaseAgentList() {
               })}
             </SelectContent>
           </Select>
+          {activeObligations.length > 0 && (
+            <Select value={obligationFilter} onValueChange={setObligationFilter}>
+              <SelectTrigger className="h-9 w-[260px] text-sm">
+                <SelectValue placeholder="Filter by obligation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All obligations</SelectItem>
+                {activeObligations.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    <span className="truncate inline-block max-w-[220px]" title={o.text}>
+                      {o.text.length > 40 ? o.text.slice(0, 40) + "…" : o.text}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -618,6 +667,7 @@ export default function TestCaseAgentList() {
                 <th className="w-10 px-2 py-2 text-center text-xs font-medium text-muted-foreground">#</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Scenario</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Obligations</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Tags</th>
                 <th className="w-24 px-3 py-2 text-center text-xs font-medium text-muted-foreground">Lock</th>
                 <th className="w-36 px-3 py-2 text-right text-xs font-medium text-muted-foreground">Actions</th>
@@ -652,8 +702,32 @@ export default function TestCaseAgentList() {
                           {tc.scenario?.length > 50 ? `${tc.scenario.slice(0, 50)}…` : tc.scenario}
                         </span>
                       </Link>
-                      {obligationCount > 0 && (
-                        <span className="text-xs text-muted-foreground/60">{obligationCount} obligations</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {obligationCount === 0 ? (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      ) : (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
+                            {obligationCount}
+                          </span>
+                          {activeObligations.length > 0 && tc.obligation_ids?.slice(0, 2).map((oid: string) => {
+                            const o = obligationTextById.get(oid);
+                            if (!o) return null;
+                            return (
+                              <span
+                                key={oid}
+                                title={o.text}
+                                className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted/40 text-muted-foreground border border-border rounded-sm max-w-[140px] truncate"
+                              >
+                                {o.text.length > 18 ? o.text.slice(0, 18) + "…" : o.text}
+                              </span>
+                            );
+                          })}
+                          {activeObligations.length > 0 && tc.obligation_ids?.length > 2 && (
+                            <span className="text-[10px] text-muted-foreground">+{tc.obligation_ids.length - 2}</span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-3 py-2.5">
