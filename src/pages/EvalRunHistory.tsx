@@ -4,10 +4,11 @@ import { parseApiError } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, PlayCircle,
-  Trash2, ArrowLeft, CheckCircle2, Clock
+  Trash2, ArrowLeft
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LatencyBudgetCard } from "@/components/eval/LatencyBudgetCard";
+import { EvalRunSummaryCard } from "@/components/eval/EvalRunSummaryCard";
 
 function PassedBadge({ passed }: { passed: boolean | null }) {
   if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
@@ -204,21 +205,12 @@ export default function EvalRunHistory() {
     const results = passFailResults;
     const grouped = groupByTestCase(results);
 
-    const total = summary.total ?? passFailResults.length;
-    const passed = summary.passed ?? passFailResults.filter((r) => r.passed === true).length;
-    const failed = summary.failed ?? passFailResults.filter((r) => r.passed === false).length;
-    const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
-    const avgLatency = computeAvgLatency(passFailResults);
     const versionId = evalRun?.agent_version_id;
     const versionNum = versionId ? versionMap[versionId] : null;
     const agentId = evalRun?.agent_id ?? run?.agent_id;
     const agentName = agentId ? agentNames[agentId] : "Unknown";
     const runType = evalRun?.run_type ?? run?.run_type ?? "full";
     const status = evalRun?.status ?? run?.status;
-
-    // Safely extract deterministic/semantic counts from summary
-    const detCount = summary.deterministic;
-    const semCount = summary.semantic;
 
     return (
       <div className="px-6 py-6 animate-fade-in">
@@ -244,34 +236,16 @@ export default function EvalRunHistory() {
               <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">v{versionNum}</span>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">{agentName}</p>
-
-          <div className="flex items-center gap-6 flex-wrap">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-success" />
-              <span className="text-sm font-medium text-foreground">{passed}/{total} passed ({pct}%)</span>
-            </div>
-            {avgLatency != null && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{formatLatency(avgLatency)} avg</span>
-              </div>
-            )}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>{agentName}</span>
             {evalRun?.started_at && (
-              <span className="text-xs text-muted-foreground">{formatDate(evalRun.started_at)}</span>
+              <span className="text-xs">{formatDate(evalRun.started_at)}</span>
             )}
           </div>
+        </div>
 
-          {/* Summary breakdown */}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            {detCount != null && (
-              <span>Deterministic: {typeof detCount === "object" ? `${detCount.passed}/${detCount.total}` : detCount}</span>
-            )}
-            {semCount != null && (
-              <span>Semantic: {typeof semCount === "object" ? `${semCount.passed}/${semCount.total}` : semCount}</span>
-            )}
-            {failed > 0 && <span className="text-destructive">Failed: {failed}</span>}
-          </div>
+        <div className="mb-6">
+          <EvalRunSummaryCard results={allResults} summary={summary} />
         </div>
 
         {/* Results table */}
