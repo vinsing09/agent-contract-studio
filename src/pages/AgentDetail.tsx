@@ -55,6 +55,7 @@ export default function AgentDetail() {
   const [reviewedSuggestionIds, setReviewedSuggestionIds] = useState<Set<string>>(new Set());
   const [applyingFixes, setApplyingFixes] = useState(false);
   const [improvementError, setImprovementError] = useState("");
+  const [suggestionMode, setSuggestionMode] = useState<"standard" | "deep">("standard");
 
   useEffect(() => {
     if (!id) return;
@@ -242,14 +243,15 @@ export default function AgentDetail() {
     setShowNewVersionDrawer(true);
   };
 
-  const handleSuggestImprovements = async () => {
+  const handleSuggestImprovements = async (mode: "standard" | "deep" = suggestionMode) => {
     if (!id || !activeVersion || !latestRun) return;
+    setSuggestionMode(mode);
     setLoadingSuggestions(true);
     setShowImprovements(true);
     setImprovementError("");
     setSuggestions([]);
     try {
-      const result = await api.getSuggestions(id, activeVersion.id, latestRun.id);
+      const result = await api.getSuggestions(id, activeVersion.id, latestRun.id, mode);
       setSuggestions(result.suggestions);
       const allIds = new Set(result.suggestions.map((s) => s.id));
       setAcceptedSuggestionIds(allIds);
@@ -714,8 +716,8 @@ export default function AgentDetail() {
           {/* Improvement Panel */}
           {showImprovements && (
             <div className="border border-border rounded bg-card p-4 mt-4 space-y-4 min-w-0 overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-foreground">Suggested Improvements</h3>
                   {!loadingSuggestions && suggestions.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
@@ -723,9 +725,37 @@ export default function AgentDetail() {
                     </p>
                   )}
                 </div>
-                <button onClick={() => setShowImprovements(false)} className="p-1 hover:bg-muted rounded transition-colors">
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="inline-flex border border-border rounded-sm overflow-hidden text-[11px] font-medium">
+                    <button
+                      onClick={() => handleSuggestImprovements("standard")}
+                      disabled={loadingSuggestions}
+                      className={`px-2 py-1 transition-colors ${
+                        suggestionMode === "standard"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title="Fast suggestions from the last run"
+                    >
+                      Standard
+                    </button>
+                    <button
+                      onClick={() => handleSuggestImprovements("deep")}
+                      disabled={loadingSuggestions}
+                      className={`px-2 py-1 border-l border-border transition-colors ${
+                        suggestionMode === "deep"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title="Deeper analysis, slower"
+                    >
+                      Deep
+                    </button>
+                  </div>
+                  <button onClick={() => setShowImprovements(false)} className="p-1 hover:bg-muted rounded transition-colors">
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
 
               {loadingSuggestions && (
