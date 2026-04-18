@@ -7,6 +7,7 @@ import {
   Trash2, ArrowLeft, CheckCircle2, Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { LatencyBudgetCard } from "@/components/eval/LatencyBudgetCard";
 
 function PassedBadge({ passed }: { passed: boolean | null }) {
   if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
@@ -197,14 +198,17 @@ export default function EvalRunHistory() {
 
     const evalRun = detailData?.eval_run ?? run;
     const summary = detailData?.summary ?? {};
-    const results: any[] = detailData?.results ?? [];
+    const allResults: EvalResult[] = (detailData?.results ?? []) as EvalResult[];
+    const passFailResults = allResults.filter((r) => r.result_type !== "informational");
+    const informationalResults = allResults.filter((r) => r.result_type === "informational");
+    const results = passFailResults;
     const grouped = groupByTestCase(results);
 
-    const total = summary.total ?? results.length;
-    const passed = summary.passed ?? results.filter((r: any) => r.passed === true).length;
-    const failed = summary.failed ?? results.filter((r: any) => r.passed === false).length;
+    const total = summary.total ?? passFailResults.length;
+    const passed = summary.passed ?? passFailResults.filter((r) => r.passed === true).length;
+    const failed = summary.failed ?? passFailResults.filter((r) => r.passed === false).length;
     const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
-    const avgLatency = computeAvgLatency(results);
+    const avgLatency = computeAvgLatency(passFailResults);
     const versionId = evalRun?.agent_version_id;
     const versionNum = versionId ? versionMap[versionId] : null;
     const agentId = evalRun?.agent_id ?? run?.agent_id;
@@ -348,6 +352,8 @@ export default function EvalRunHistory() {
             </table>
           </div>
         )}
+
+        <LatencyBudgetCard informational={informationalResults} scenarioMap={scenarioMap} />
 
         {/* Next step guidance */}
         {results.length > 0 && agentId && (

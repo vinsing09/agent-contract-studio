@@ -82,18 +82,24 @@ export interface EvalRun {
   total_count: number;
 }
 
+export type EvalResultType = "deterministic" | "semantic" | "informational" | string;
+
+export type RegressionType = "STABLE" | "REGRESSION" | "IMPROVEMENT" | "NO_PROGRESS" | string;
+
 export interface EvalResult {
   id: string;
   run_id: string;
   test_case_id: string;
-  assertion_id: string;
+  assertion_id: string | null;
   passed: boolean | null;
   reason: string;
-  result_type: string;
+  result_type: EvalResultType;
   scenario?: string;
   assertion_type?: string;
   tool_name?: string;
   param?: string;
+  latency_ms?: number | null;
+  regression_type?: RegressionType | null;
 }
 
 export interface RegressionCase {
