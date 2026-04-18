@@ -156,6 +156,18 @@ export interface AgentVersion {
   created_at: string;
 }
 
+export interface CreateEvalRunRequest {
+  run_type?: "full" | "regression" | string;
+  test_case_source_version_id?: string;
+  baseline_run_id?: string;
+}
+
+export interface CreateEvalRunResponse {
+  eval_run?: EvalRun;
+  id?: string;
+  [key: string]: unknown;
+}
+
 export class ApiError extends Error {
   status: number;
   body?: unknown;
@@ -320,10 +332,13 @@ export const api = {
   getTestCasesV2: (agentId: string, versionId: string) =>
     request<TestCaseV2[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
 
-  runEvalV2: (agentId: string, versionId: string) =>
-    request<any>(
+  createEvalRun: (agentId: string, versionId: string, body: CreateEvalRunRequest = {}) =>
+    request<CreateEvalRunResponse>(
       `/agents/${agentId}/versions/${versionId}/eval-runs`,
-      { method: "POST", body: JSON.stringify({ run_type: "full" }) }
+      {
+        method: "POST",
+        body: JSON.stringify({ run_type: "full", ...body }),
+      }
     ),
 
   lockTestCaseWithIntent: (id: string, intent: "protect" | "track") =>

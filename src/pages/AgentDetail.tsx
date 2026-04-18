@@ -5,6 +5,7 @@ import type { ContractV2, Suggestion } from "@/lib/types";
 import ContractPanel from "@/components/contract/ContractPanel";
 import { RegenerateContractDialog } from "@/components/contract/RegenerateContractDialog";
 import { SuggestionCard } from "@/components/improvements/SuggestionCard";
+import { NewEvalRunDialog } from "@/components/eval/NewEvalRunDialog";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
@@ -56,6 +57,7 @@ export default function AgentDetail() {
   const [applyingFixes, setApplyingFixes] = useState(false);
   const [improvementError, setImprovementError] = useState("");
   const [suggestionMode, setSuggestionMode] = useState<"standard" | "deep">("standard");
+  const [showEvalRunDialog, setShowEvalRunDialog] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -142,15 +144,22 @@ export default function AgentDetail() {
     }
   };
 
-  const handleRunEval = async () => {
+  const handleRunEval = async (sourceVersionId?: string) => {
     if (!id || !activeVersion) return;
     setRunningEval(true);
     try {
-      const response = await api.runEvalV2(id, activeVersion.id) as any;
-      const runId = response?.eval_run?.id || response?.id;
-      const results = await api.getEvalRunResults(runId);
-      setLatestRun(response?.eval_run || response);
-      setLatestResults(results);
+      const body =
+        sourceVersionId && sourceVersionId !== activeVersion.id
+          ? { test_case_source_version_id: sourceVersionId }
+          : {};
+      const response = await api.createEvalRun(id, activeVersion.id, body);
+      const run = (response.eval_run as EvalRun | undefined) ?? (response as unknown as EvalRun);
+      const runId = run?.id;
+      if (runId) {
+        const results = await api.getEvalRunResults(runId);
+        setLatestRun(run);
+        setLatestResults(results);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -690,7 +699,7 @@ export default function AgentDetail() {
               </button>
             )}
             <button
-              onClick={handleRunEval}
+              onClick={() => setShowEvalRunDialog(true)}
               disabled={!hasTests || runningEval || !activeVersion}
               className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] ${
                 latestRun
@@ -817,6 +826,16 @@ export default function AgentDetail() {
           )}
         </div>
       </div>
+
+      <NewEvalRunDialog
+        open={showEvalRunDialog}
+        onClose={() => setShowEvalRunDialog(false)}
+        activeVersion={activeVersion}
+        versions={versions}
+        onConfirm={async ({ sourceVersionId }) => {
+          await handleRunEval(sourceVersionId);
+        }}
+      />
 
       {/* Delete Modal */}
       {deleteModal && (

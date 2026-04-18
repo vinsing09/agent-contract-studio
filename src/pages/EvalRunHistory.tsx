@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { api, type EvalRun, type EvalResult, type Agent, type AgentVersion } from "@/lib/api";
+import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import { api, type EvalRun, type EvalResult } from "@/lib/api";
 import { parseApiError } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui-shared";
 import {
@@ -53,6 +54,7 @@ function computeAvgLatency(results: any[]): number | null {
 type View = { type: "list" } | { type: "detail"; runId: string };
 
 export default function EvalRunHistory() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [runs, setRuns] = useState<EvalRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,6 +70,7 @@ export default function EvalRunHistory() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [scenarioMap, setScenarioMap] = useState<Record<string, string>>({});
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
+  const deepLinkConsumed = useRef(false);
 
   useEffect(() => {
     setLoading(true);
@@ -114,6 +117,16 @@ export default function EvalRunHistory() {
       .catch((err) => setError(parseApiError(err)))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const selected = searchParams.get("selected");
+    if (!selected || deepLinkConsumed.current || loading) return;
+    deepLinkConsumed.current = true;
+    void openDetail(selected);
+    const next = new URLSearchParams(searchParams);
+    next.delete("selected");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, loading, setSearchParams]);
 
   const openDetail = async (runId: string) => {
     setView({ type: "detail", runId });
