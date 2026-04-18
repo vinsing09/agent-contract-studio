@@ -35,7 +35,6 @@ export default function AgentDetail() {
 
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractStatus, setContractStatus] = useState("");
-  const [generatingTests, setGeneratingTests] = useState(false);
   const [runningEval, setRunningEval] = useState(false);
 
   const [showVersionPanel, setShowVersionPanel] = useState(true);
@@ -138,20 +137,6 @@ export default function AgentDetail() {
     } finally {
       setGeneratingContract(false);
       setContractStatus("");
-    }
-  };
-
-  const handleGenerateTests = async () => {
-    if (!id || !activeVersion) return;
-    setGeneratingTests(true);
-    try {
-      await api.generateTestCasesV2(id, activeVersion.id);
-      const cases = await api.getTestCasesV2(id, activeVersion.id);
-      setTestCases(Array.isArray(cases) ? cases : []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setGeneratingTests(false);
     }
   };
 
@@ -674,14 +659,19 @@ export default function AgentDetail() {
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-success" /> {testCases.length} Test Cases
               </Link>
+            ) : hasContract && activeVersion ? (
+              <Link
+                to={`/agents/${id}/versions/${activeVersion.id}/test-cases/generate`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97]"
+              >
+                Generate test cases
+              </Link>
             ) : (
               <button
-                onClick={handleGenerateTests}
-                disabled={!hasContract || generatingTests || !activeVersion}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors opacity-40 cursor-not-allowed"
               >
-                {generatingTests && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Generate Test Cases
+                Generate test cases
               </button>
             )}
             <button

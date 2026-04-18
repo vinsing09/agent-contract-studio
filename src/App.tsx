@@ -8,6 +8,7 @@ import AgentUpload from "@/pages/AgentUpload";
 import AgentList from "@/pages/AgentList";
 import AgentDetail from "@/pages/AgentDetail";
 import AgentSchema from "@/pages/AgentSchema";
+import TestCaseGenerate from "@/pages/TestCaseGenerate";
 
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
@@ -30,7 +31,8 @@ const App = () => (
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:id" element={<AgentDetail />} />
             <Route path="/agents/:agentId/versions/:versionId/schema" element={<AgentSchema />} />
-            
+            <Route path="/agents/:agentId/versions/:versionId/test-cases/generate" element={<TestCaseGenerate />} />
+
             <Route path="/test-cases" element={<TestCaseAgentList />} />
             
             <Route path="/agents/:agentId/test-cases/:id" element={<TestCaseDetail />} />

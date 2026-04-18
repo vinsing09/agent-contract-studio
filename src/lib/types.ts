@@ -31,6 +31,52 @@ export interface LatencyBudget {
   failure_category: FailureCategory;
 }
 
+export interface ToolStubV2 {
+  response: Record<string, unknown>;
+  latency_ms: number;
+  simulate_failure: boolean;
+}
+
+export interface AssertionV2 {
+  id: string;
+  type:
+    | "tool_called"
+    | "tool_not_called"
+    | "param_contains"
+    | "output_contains"
+    | "max_latency_ms"
+    | "tool_sequence"
+    | string;
+  tool?: string | null;
+  param?: string | null;
+  value?: string | null;
+  required: boolean;
+}
+
+export interface TestCaseV2 {
+  id: string;
+  agent_id: string;
+  agent_version_id: string;
+  contract_id: string;
+  scenario: string;
+  input_text: string;
+  tool_stubs: Record<string, ToolStubV2>;
+  assertions: AssertionV2[];
+  obligation_ids: string[];
+  tags: string[];
+  locked: boolean;
+  locked_at_pass: number | null;
+  locked_at_version_id: string | null;
+  created_at: string;
+}
+
+export interface GenerateTestCasesResponse {
+  count: number;
+  version_id: string;
+  contract_id: string;
+  test_cases: TestCaseV2[];
+}
+
 export interface ContractV2 {
   id: string;
   agent_id: string;

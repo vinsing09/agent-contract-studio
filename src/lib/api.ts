@@ -1,4 +1,9 @@
-import type { AgentSchema, ContractV2 } from "./types";
+import type {
+  AgentSchema,
+  ContractV2,
+  TestCaseV2,
+  GenerateTestCasesResponse,
+} from "./types";
 
 const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
 
@@ -193,9 +198,6 @@ export const api = {
   generateContract: (agentId: string) =>
     request<Contract>(`/agents/${agentId}/contract/generate`, { method: "POST" }),
 
-  generateTestCases: (agentId: string) =>
-    request<TestCase[]>(`/agents/${agentId}/test-cases/generate`, { method: "POST" }),
-
   getTestCases: (agentId: string) =>
     request<TestCase[]>(`/agents/${agentId}/test-cases`),
 
@@ -300,14 +302,14 @@ export const api = {
   getContractV2: (agentId: string, versionId: string) =>
     request<ContractV2>(`/agents/${agentId}/versions/${versionId}/contract`),
 
-  generateTestCasesV2: (agentId: string, versionId: string) =>
-    request<any>(
-      `/agents/${agentId}/versions/${versionId}/test-cases/generate`,
+  generateTestCasesV2: (agentId: string, versionId: string, count: number = 15) =>
+    request<GenerateTestCasesResponse>(
+      `/agents/${agentId}/versions/${versionId}/test-cases/generate?count=${count}`,
       { method: "POST" }
     ),
 
   getTestCasesV2: (agentId: string, versionId: string) =>
-    request<any[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
+    request<TestCaseV2[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
 
   runEvalV2: (agentId: string, versionId: string) =>
     request<any>(
