@@ -477,7 +477,7 @@ export default function AgentDetail() {
                     );
                   })}
                 </div>
-                <div className="px-3 py-2 border-t border-border">
+                <div className="px-3 py-2 border-t border-border flex items-center gap-3">
                   <button
                     onClick={openNewVersionDrawer}
                     className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -485,6 +485,19 @@ export default function AgentDetail() {
                     <Plus className="w-3 h-3" />
                     New Version
                   </button>
+                  {versions.length >= 2 && (
+                    <Link
+                      to={`/agents/${id}/diff${activeVersion && versions.length >= 2 ? (() => {
+                        const sorted = [...versions].sort((a, b) => b.version_number - a.version_number);
+                        const right = activeVersion.id;
+                        const left = sorted.find((v) => v.id !== right)?.id ?? sorted[1].id;
+                        return `?left=${left}&right=${right}`;
+                      })() : ""}`}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Compare versions
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

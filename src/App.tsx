@@ -14,6 +14,7 @@ import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
 import RegressionDashboard from "@/pages/RegressionDashboard";
 import TestCaseAgentList from "@/pages/TestCaseAgentList";
+import VersionDiff from "@/pages/VersionDiff";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:id" element={<AgentDetail />} />
+            <Route path="/agents/:id/diff" element={<VersionDiff />} />
             <Route path="/agents/:agentId/versions/:versionId/schema" element={<AgentSchema />} />
             <Route path="/agents/:agentId/versions/:versionId/test-cases/generate" element={<TestCaseGenerate />} />
 
