@@ -10,6 +10,13 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LatencyBudgetCard } from "@/components/eval/LatencyBudgetCard";
 import { EvalRunSummaryCard } from "@/components/eval/EvalRunSummaryCard";
+import { RegressionTypeBadge } from "@/components/regression/RegressionTypeBadge";
+import {
+  RegressionFilterChips,
+  filterByRegressionType,
+  countByRegressionType,
+  type RegressionFilter,
+} from "@/components/regression/RegressionFilterChips";
 
 function PassedBadge({ passed }: { passed: boolean | null }) {
   if (passed === true) return <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium bg-success/15 text-success border border-success/30 rounded-sm">PASS</span>;
@@ -70,6 +77,7 @@ export default function EvalRunHistory() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [scenarioMap, setScenarioMap] = useState<Record<string, string>>({});
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
+  const [regressionFilter, setRegressionFilter] = useState<RegressionFilter>("ALL");
   const deepLinkConsumed = useRef(false);
 
   useEffect(() => {
@@ -215,7 +223,13 @@ export default function EvalRunHistory() {
     const allResults: EvalResult[] = (detailData?.results ?? []) as EvalResult[];
     const passFailResults = allResults.filter((r) => r.result_type !== "informational");
     const informationalResults = allResults.filter((r) => r.result_type === "informational");
-    const results = passFailResults;
+    const regressionCounts = countByRegressionType(passFailResults);
+    const hasRegressionData = (regressionCounts.ALL ?? 0) > 0 &&
+      Object.keys(regressionCounts).some((k) => k !== "ALL");
+    const filteredResults = hasRegressionData
+      ? filterByRegressionType(passFailResults, regressionFilter)
+      : passFailResults;
+    const results = filteredResults;
     const grouped = groupByTestCase(results);
 
     const versionId = evalRun?.agent_version_id;
@@ -261,6 +275,16 @@ export default function EvalRunHistory() {
           <EvalRunSummaryCard results={allResults} summary={summary} />
         </div>
 
+        {hasRegressionData && (
+          <div className="mb-3">
+            <RegressionFilterChips
+              value={regressionFilter}
+              counts={regressionCounts}
+              onChange={setRegressionFilter}
+            />
+          </div>
+        )}
+
         {/* Results table */}
         {results.length === 0 ? (
           <p className="text-sm text-muted-foreground">No results for this run.</p>
@@ -273,6 +297,9 @@ export default function EvalRunHistory() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assertion</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-16">Result</th>
+                  {hasRegressionData && (
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-24">Regression</th>
+                  )}
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Reason</th>
                   <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-20">Latency</th>
                 </tr>
@@ -283,7 +310,7 @@ export default function EvalRunHistory() {
                   return (
                     <React.Fragment key={tcId}>
                       <tr className="border-b border-border bg-muted/20">
-                        <td colSpan={6} className="px-3 py-2">
+                        <td colSpan={hasRegressionData ? 7 : 6} className="px-3 py-2">
                           <span className="text-xs font-medium text-foreground">{scenario}</span>
                           <span className="ml-2 text-[10px] font-mono text-muted-foreground">{tcId.slice(0, 12)}…</span>
                         </td>
@@ -311,6 +338,11 @@ export default function EvalRunHistory() {
                             <td className="px-3 py-2">
                               <PassedBadge passed={r.passed} />
                             </td>
+                            {hasRegressionData && (
+                              <td className="px-3 py-2">
+                                <RegressionTypeBadge type={r.regression_type} />
+                              </td>
+                            )}
                             <td className="px-3 py-2 text-xs text-muted-foreground max-w-[300px]">
                               {isTruncated && !showFull ? (
                                 <span>

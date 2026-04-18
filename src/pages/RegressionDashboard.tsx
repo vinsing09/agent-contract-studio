@@ -1,45 +1,13 @@
 import { useState, useEffect } from "react";
-import { api, type Agent, type AgentVersion } from "@/lib/api";
+import {
+  api,
+  type Agent,
+  type AgentVersion,
+  type RegressionRunResponse,
+} from "@/lib/api";
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Check, X, Info } from "lucide-react";
 import { parseApiError } from "@/lib/utils";
-
-interface FailedAssertion {
-  assertion_id: string;
-  reason: string;
-}
-
-interface RegressionCase {
-  test_case_id: string;
-  scenario: string;
-  failed_assertions: FailedAssertion[];
-}
-
-interface ImprovementCase {
-  test_case_id: string;
-  scenario: string;
-}
-
-interface NoProgressCase {
-  test_case_id: string;
-  scenario: string;
-}
-
-interface RegressionResult {
-  status: "PASSED" | "BLOCKED";
-  run_id: string;
-  challenger_version_id: string;
-  baseline_version_id: string;
-  summary: {
-    locked_cases_total: number;
-    stable_count: number;
-    regression_count: number;
-    improvement_count: number;
-    no_progress_count: number;
-  };
-  regressions: RegressionCase[];
-  improvements: ImprovementCase[];
-  no_progress?: NoProgressCase[];
-}
+import { RegressionTypeBadge } from "@/components/regression/RegressionTypeBadge";
 
 export default function RegressionDashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -49,7 +17,7 @@ export default function RegressionDashboard() {
   const [challengerVersionId, setChallengerVersionId] = useState<string | null>(null);
   const [baselineVersionId, setBaselineVersionId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<RegressionResult | null>(null);
+  const [result, setResult] = useState<RegressionRunResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
@@ -120,40 +88,23 @@ export default function RegressionDashboard() {
     setExpandedScenarios(new Set());
 
     try {
-      const res = await api.runRegressionV2(selectedAgentId, {
+      const response = await api.runRegression(selectedAgentId, {
         challenger_version_id: challengerVersionId,
         baseline_version_id: baselineVersionId,
       });
-
-      if (res.ok) {
-        const json = await res.json();
-        setResult({ ...json, status: json.status || "PASSED" });
-      } else if (res.status === 422) {
-        const json = await res.json();
-        const detail = json.detail || json;
-        setResult({ ...detail, status: detail.status || "BLOCKED" });
-      } else {
-        // Parse error body for friendly messages
-        let msg = `Regression run failed (HTTP ${res.status})`;
-        try {
-          const json = await res.json();
-          const detail = typeof json.detail === "string" ? json.detail : "";
-          if (res.status === 404) {
-            msg = "Agent or version not found. Please refresh and try again.";
-          } else if (res.status === 400 && detail.toLowerCase().includes("no locked")) {
-            msg = "No locked test cases found in the selected baseline version. Go to Test Cases and lock some cases first.";
-          } else if (res.status === 400 && detail.toLowerCase().includes("baseline") && detail.toLowerCase().includes("challenger")) {
-            msg = "Baseline and challenger cannot be the same version.";
-          } else if (detail) {
-            msg = detail;
-          }
-        } catch {
-          // couldn't parse JSON, use default msg
-        }
-        setError(msg);
-      }
+      setResult(response);
     } catch (err: any) {
-      setError(parseApiError(err));
+      const raw = err?.message ?? "";
+      const low = raw.toLowerCase();
+      let msg = parseApiError(err);
+      if (err?.status === 404) {
+        msg = "Agent or version not found. Please refresh and try again.";
+      } else if (err?.status === 400 && low.includes("no locked")) {
+        msg = "No locked test cases found in the selected baseline version. Go to Test Cases and lock some cases first.";
+      } else if (err?.status === 400 && low.includes("baseline") && low.includes("challenger")) {
+        msg = "Baseline and challenger cannot be the same version.";
+      }
+      setError(msg);
     } finally {
       setRunning(false);
     }
@@ -294,13 +245,19 @@ export default function RegressionDashboard() {
           )}
 
           {/* Verdict line */}
-          <p className="text-sm font-medium mb-2">
-            {result.summary.regression_count > result.summary.improvement_count
-              ? "⚠️ Challenger is worse on net"
-              : result.summary.improvement_count > result.summary.regression_count
-              ? "✅ Challenger is better on net"
-              : "→ No net change"}
-          </p>
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <p className="text-sm font-medium">
+              {result.summary.regression_count > result.summary.improvement_count
+                ? "⚠️ Challenger is worse on net"
+                : result.summary.improvement_count > result.summary.regression_count
+                ? "✅ Challenger is better on net"
+                : "→ No net change"}
+            </p>
+            {result.summary.regression_count > 0 && <RegressionTypeBadge type="REGRESSION" />}
+            {result.summary.improvement_count > 0 && <RegressionTypeBadge type="IMPROVEMENT" />}
+            {result.summary.stable_count > 0 && <RegressionTypeBadge type="STABLE" />}
+            {result.summary.no_progress_count > 0 && <RegressionTypeBadge type="NO_PROGRESS" />}
+          </div>
 
           {/* Summary counts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">

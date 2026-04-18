@@ -156,6 +156,33 @@ export interface AgentVersion {
   created_at: string;
 }
 
+export interface RegressionCaseV2 {
+  test_case_id: string;
+  scenario: string;
+  failed_assertions?: { assertion_id: string; reason: string }[];
+}
+
+export interface RegressionSummary {
+  locked_cases_total: number;
+  stable_count: number;
+  regression_count: number;
+  improvement_count: number;
+  no_progress_count: number;
+}
+
+export type RegressionStatus = "PASSED" | "BLOCKED";
+
+export interface RegressionRunResponse {
+  status: RegressionStatus;
+  run_id: string;
+  challenger_version_id: string;
+  baseline_version_id: string;
+  summary: RegressionSummary;
+  regressions: RegressionCaseV2[];
+  improvements: RegressionCaseV2[];
+  no_progress?: RegressionCaseV2[];
+}
+
 export interface CreateEvalRunRequest {
   run_type?: "full" | "regression" | string;
   test_case_source_version_id?: string;
@@ -274,6 +301,41 @@ export const api = {
       },
       body: JSON.stringify(data),
     }),
+
+  runRegression: async (agentId: string, data: {
+    challenger_version_id: string;
+    baseline_version_id: string;
+  }): Promise<RegressionRunResponse> => {
+    const res = await fetch(`${API_BASE}/agents/${agentId}/regression-run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return { ...json, status: json.status ?? "PASSED" } as RegressionRunResponse;
+    }
+    if (res.status === 422) {
+      const json = await res.json();
+      const detail = json.detail ?? json;
+      return { ...detail, status: detail.status ?? "BLOCKED" } as RegressionRunResponse;
+    }
+    let detail: string | undefined;
+    let body: unknown;
+    try {
+      body = await res.json();
+      if (body && typeof body === "object" && "detail" in body) {
+        const d = (body as { detail: unknown }).detail;
+        if (typeof d === "string") detail = d;
+      }
+    } catch {
+      body = await res.text();
+    }
+    throw new ApiError(res.status, detail ?? `Regression run failed (HTTP ${res.status})`, body);
+  },
 
   createDraft: (data: {
     name: string;
