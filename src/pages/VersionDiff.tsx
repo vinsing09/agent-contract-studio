@@ -5,10 +5,11 @@ import { api, type AgentVersion } from "@/lib/api";
 import type { ContractV2 } from "@/lib/types";
 import { VersionPicker } from "@/components/version-diff/VersionPicker";
 import { PromptDiff } from "@/components/version-diff/PromptDiff";
+import { SchemaDiff } from "@/components/version-diff/SchemaDiff";
 import { ContractDiff } from "@/components/version-diff/ContractDiff";
 import { EvalDeltaTab } from "@/components/version-diff/EvalDeltaTab";
 
-type Tab = "prompt" | "contract" | "eval";
+type Tab = "prompt" | "schema" | "contract" | "eval";
 
 export default function VersionDiff() {
   const { id } = useParams<{ id: string }>();
@@ -102,6 +103,7 @@ export default function VersionDiff() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "prompt", label: "Prompt" },
+    { id: "schema", label: "Schema" },
     { id: "contract", label: "Contract" },
     { id: "eval", label: "Eval Delta" },
   ];
@@ -162,6 +164,15 @@ export default function VersionDiff() {
             <PromptDiff
               left={leftVersion?.system_prompt ?? ""}
               right={rightVersion?.system_prompt ?? ""}
+              leftLabel={leftLabel}
+              rightLabel={rightLabel}
+            />
+          )}
+
+          {tab === "schema" && (
+            <SchemaDiff
+              left={leftVersion?.tool_schemas ?? []}
+              right={rightVersion?.tool_schemas ?? []}
               leftLabel={leftLabel}
               rightLabel={rightLabel}
             />
