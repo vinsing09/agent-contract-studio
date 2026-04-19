@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { parseApiError } from "@/lib/utils";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
+import type { ObligationV2 } from "@/lib/types";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import { Loader2, AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, CheckCircle2, Inbox, Lock, Unlock, ArrowLeft } from "lucide-react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
@@ -30,6 +31,7 @@ export default function TestCaseDetailPage() {
   const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [evalLoading, setEvalLoading] = useState(false);
   const [agentName, setAgentName] = useState("");
+  const [obligations, setObligations] = useState<ObligationV2[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -49,6 +51,22 @@ export default function TestCaseDetailPage() {
       .then((agent) => setAgentName(agent.name))
       .catch(() => {});
   }, [resolvedAgentId]);
+
+  useEffect(() => {
+    const versionId = (tc as any)?.agent_version_id as string | undefined;
+    const obligationIds = (tc as any)?.obligation_ids as string[] | undefined;
+    if (!resolvedAgentId || !versionId || !obligationIds || obligationIds.length === 0) {
+      setObligations([]);
+      return;
+    }
+    api.getContractV2(resolvedAgentId, versionId)
+      .then((contract) => {
+        const all = (contract?.obligations ?? []) as ObligationV2[];
+        const ids = new Set(obligationIds);
+        setObligations(all.filter((o) => ids.has(o.id)));
+      })
+      .catch(() => setObligations([]));
+  }, [resolvedAgentId, tc]);
 
   // Fetch latest eval run results for this test case
   useEffect(() => {
@@ -223,6 +241,32 @@ export default function TestCaseDetailPage() {
               <p className="text-sm text-foreground italic">{tc.input_text}</p>
             </div>
           </section>
+
+          {obligations.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Covers Obligations ({obligations.length})
+              </h2>
+              <div className="space-y-1.5">
+                {obligations.map((o) => (
+                  <div
+                    key={o.id}
+                    className="flex items-start gap-2 px-3 py-2 border border-border rounded bg-card"
+                  >
+                    <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm shrink-0 mt-0.5">
+                      {o.source}
+                    </span>
+                    <span className="text-sm text-foreground">{o.text}</span>
+                    {o.failure_category && (
+                      <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted/60 text-muted-foreground border border-border rounded-sm shrink-0 ml-auto">
+                        {o.failure_category}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>

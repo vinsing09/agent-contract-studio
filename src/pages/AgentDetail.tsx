@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { api, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
+import { api, ApiError, type Agent, type Contract, type TestCase, type EvalRun, type EvalResult, type AgentVersion } from "@/lib/api";
+import type { ContractV2, Suggestion } from "@/lib/types";
+import ContractPanel from "@/components/contract/ContractPanel";
+import { RegenerateContractDialog } from "@/components/contract/RegenerateContractDialog";
+import { SuggestionCard } from "@/components/improvements/SuggestionCard";
+import { NewEvalRunDialog } from "@/components/eval/NewEvalRunDialog";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
 import {
   Loader2, AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Trash2,
-  FileText, ListChecks, PlayCircle, CheckCircle2, XCircle, X, Plus, Sparkles, Check
+  FileText, ListChecks, PlayCircle, CheckCircle2, X, Plus, Sparkles, FileJson
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +37,6 @@ export default function AgentDetail() {
 
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractStatus, setContractStatus] = useState("");
-  const [generatingTests, setGeneratingTests] = useState(false);
   const [runningEval, setRunningEval] = useState(false);
 
   const [showVersionPanel, setShowVersionPanel] = useState(true);
@@ -44,13 +49,15 @@ export default function AgentDetail() {
   const [switchingVersion, setSwitchingVersion] = useState(false);
 
   const [showImprovements, setShowImprovements] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [acceptedSuggestionIds, setAcceptedSuggestionIds] = useState<Set<string>>(new Set());
   const [rejectedSuggestionIds, setRejectedSuggestionIds] = useState<Set<string>>(new Set());
   const [reviewedSuggestionIds, setReviewedSuggestionIds] = useState<Set<string>>(new Set());
   const [applyingFixes, setApplyingFixes] = useState(false);
   const [improvementError, setImprovementError] = useState("");
+  const [suggestionMode, setSuggestionMode] = useState<"standard" | "deep">("standard");
+  const [showEvalRunDialog, setShowEvalRunDialog] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -137,29 +144,22 @@ export default function AgentDetail() {
     }
   };
 
-  const handleGenerateTests = async () => {
-    if (!id || !activeVersion) return;
-    setGeneratingTests(true);
-    try {
-      await api.generateTestCasesV2(id, activeVersion.id);
-      const cases = await api.getTestCasesV2(id, activeVersion.id);
-      setTestCases(Array.isArray(cases) ? cases : []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setGeneratingTests(false);
-    }
-  };
-
-  const handleRunEval = async () => {
+  const handleRunEval = async (sourceVersionId?: string) => {
     if (!id || !activeVersion) return;
     setRunningEval(true);
     try {
-      const response = await api.runEvalV2(id, activeVersion.id) as any;
-      const runId = response?.eval_run?.id || response?.id;
-      const results = await api.getEvalRunResults(runId);
-      setLatestRun(response?.eval_run || response);
-      setLatestResults(results);
+      const body =
+        sourceVersionId && sourceVersionId !== activeVersion.id
+          ? { test_case_source_version_id: sourceVersionId }
+          : {};
+      const response = await api.createEvalRun(id, activeVersion.id, body);
+      const run = (response.eval_run as EvalRun | undefined) ?? (response as unknown as EvalRun);
+      const runId = run?.id;
+      if (runId) {
+        const results = await api.getEvalRunResults(runId);
+        setLatestRun(run);
+        setLatestResults(results);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -252,16 +252,17 @@ export default function AgentDetail() {
     setShowNewVersionDrawer(true);
   };
 
-  const handleSuggestImprovements = async () => {
+  const handleSuggestImprovements = async (mode: "standard" | "deep" = suggestionMode) => {
     if (!id || !activeVersion || !latestRun) return;
+    setSuggestionMode(mode);
     setLoadingSuggestions(true);
     setShowImprovements(true);
     setImprovementError("");
     setSuggestions([]);
     try {
-      const result = await api.getSuggestions(id, activeVersion.id, latestRun.id);
+      const result = await api.getSuggestions(id, activeVersion.id, latestRun.id, mode);
       setSuggestions(result.suggestions);
-      const allIds = new Set(result.suggestions.map((s: any) => s.id));
+      const allIds = new Set(result.suggestions.map((s) => s.id));
       setAcceptedSuggestionIds(allIds);
       setRejectedSuggestionIds(new Set());
       setReviewedSuggestionIds(new Set(allIds));
@@ -289,11 +290,23 @@ export default function AgentDetail() {
     setApplyingFixes(true);
     setImprovementError("");
     try {
-      const accepted = suggestions.filter(s => !rejectedSuggestionIds.has(s.id)).map(s => s.id);
+      const acceptedIds = suggestions
+        .filter((s) => !rejectedSuggestionIds.has(s.id))
+        .map((s) => s.id);
+
+      const acceptedPatches: Record<string, string> = {};
+      for (const s of suggestions) {
+        if (!rejectedSuggestionIds.has(s.id) && s.prompt_patch) {
+          acceptedPatches[s.id] = s.prompt_patch;
+        }
+      }
+
       await api.applySuggestions(id, activeVersion.id, {
-        accepted_fix_ids: accepted,
+        accepted_fix_ids: acceptedIds,
         eval_run_id: latestRun.id,
         label: "Improved from eval results",
+        accepted_patches:
+          Object.keys(acceptedPatches).length > 0 ? acceptedPatches : undefined,
       });
       const vList = await api.getAgentVersions(id);
       const sorted = Array.isArray(vList) ? vList : [];
@@ -409,6 +422,20 @@ export default function AgentDetail() {
                 Version {activeVersion.version_number} · {activeVersion.source} · {new Date(activeVersion.created_at).toLocaleDateString()}
               </p>
             )}
+            {activeVersion && (
+              <div className="mt-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    to={`/agents/${id}/versions/${activeVersion.id}/schema`}
+                    aria-label="Open schema viewer"
+                    className="text-[13px]"
+                  >
+                    <FileJson className="w-3.5 h-3.5 mr-1.5" />
+                    Schema
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Version Timeline */}
@@ -450,7 +477,7 @@ export default function AgentDetail() {
                     );
                   })}
                 </div>
-                <div className="px-3 py-2 border-t border-border">
+                <div className="px-3 py-2 border-t border-border flex items-center gap-3">
                   <button
                     onClick={openNewVersionDrawer}
                     className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -458,6 +485,19 @@ export default function AgentDetail() {
                     <Plus className="w-3 h-3" />
                     New Version
                   </button>
+                  {versions.length >= 2 && (
+                    <Link
+                      to={`/agents/${id}/diff${activeVersion && versions.length >= 2 ? (() => {
+                        const sorted = [...versions].sort((a, b) => b.version_number - a.version_number);
+                        const right = activeVersion.id;
+                        const left = sorted.find((v) => v.id !== right)?.id ?? sorted[1].id;
+                        return `?left=${left}&right=${right}`;
+                      })() : ""}`}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Compare versions
+                    </Link>
+                  )}
                 </div>
               </div>
             )}
@@ -529,53 +569,16 @@ export default function AgentDetail() {
                 <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">NONE</span>
               )}
             </div>
-            {hasContract && contract && (
-              <div className="space-y-3">
-                {obligations.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Obligations</p>
-                    <ol className="space-y-1.5 list-decimal list-inside">
-                      {obligations.map((ob: any, i: number) => (
-                        <li key={isV2Obligations ? ob.id : i} className="text-sm text-foreground">
-                          {isV2Obligations ? (
-                            <span className="inline-flex items-center gap-2">
-                              <span>{ob.text}</span>
-                              <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${sourceColors[ob.source] || sourceColors.behavioral}`}>
-                                {ob.source}
-                              </span>
-                            </span>
-                          ) : (
-                            ob
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-                {contract.tool_stubs && Object.keys(contract.tool_stubs).length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</p>
-                    <div className="space-y-1">
-                      {Object.entries(contract.tool_stubs).map(([toolName, stub]) => (
-                        <div key={toolName} className="border border-border rounded">
-                          <button
-                            onClick={() => toggleStub(toolName)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-muted/30 transition-colors"
-                          >
-                            {expandedStubs.has(toolName) ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
-                            <span className="font-mono text-foreground">{toolName}</span>
-                          </button>
-                          {expandedStubs.has(toolName) && (
-                            <div className="border-t border-border">
-                              <CodeBlock>{JSON.stringify(stub, null, 2)}</CodeBlock>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+            {activeVersion && id && (
+              <ContractPanel
+                agentId={id}
+                versionId={activeVersion.id}
+                contract={
+                  contract && Array.isArray(contract.tool_sequences)
+                    ? (contract as ContractV2)
+                    : null
+                }
+              />
             )}
           </section>
 
@@ -609,6 +612,13 @@ export default function AgentDetail() {
                 <span className="font-mono">{passedCaseCount}/{totalCaseCount} cases passed ({passRate}%)</span>
                 <span>{new Date(latestRun.started_at).toLocaleDateString()}</span>
               </div>
+              {contract?.created_at && latestRun.started_at &&
+                new Date(latestRun.started_at) < new Date(contract.created_at) && (
+                <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 text-[11px] bg-warning/10 border border-warning/30 rounded text-foreground">
+                  <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
+                  Contract has changed since this run. Re-run eval to re-baseline.
+                </div>
+              )}
             </section>
           )}
 
@@ -651,20 +661,34 @@ export default function AgentDetail() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleGenerateContract}
-              disabled={hasContract || generatingContract || !activeVersion}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
-            >
-              {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {hasContract ? (
-                <><CheckCircle2 className="w-3.5 h-3.5 text-success" /> Contract Generated</>
-              ) : generatingContract ? (
-                contractStatus
-              ) : (
-                "Generate Contract"
-              )}
-            </button>
+            {hasContract && id && activeVersion ? (
+              <RegenerateContractDialog
+                agentId={id}
+                versionId={activeVersion.id}
+                onSuccess={async () => {
+                  if (!id || !activeVersion) return;
+                  const c = await api.getContractV2(id, activeVersion.id).catch(() => null);
+                  setContract(c);
+                }}
+                trigger={
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97]"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                    Regenerate contract
+                  </button>
+                }
+              />
+            ) : (
+              <button
+                onClick={handleGenerateContract}
+                disabled={generatingContract || !activeVersion}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
+              >
+                {generatingContract && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {generatingContract ? contractStatus : "Generate contract"}
+              </button>
+            )}
             {hasTests ? (
               <Link
                 to={`/test-cases?agent_id=${id}${activeVersion ? `&version_id=${activeVersion.id}` : ''}`}
@@ -672,18 +696,23 @@ export default function AgentDetail() {
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-success" /> {testCases.length} Test Cases
               </Link>
+            ) : hasContract && activeVersion ? (
+              <Link
+                to={`/agents/${id}/versions/${activeVersion.id}/test-cases/generate`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors hover:bg-muted active:scale-[0.97]"
+              >
+                Generate test cases
+              </Link>
             ) : (
               <button
-                onClick={handleGenerateTests}
-                disabled={!hasContract || generatingTests || !activeVersion}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted active:scale-[0.97]"
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded transition-colors opacity-40 cursor-not-allowed"
               >
-                {generatingTests && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Generate Test Cases
+                Generate test cases
               </button>
             )}
             <button
-              onClick={handleRunEval}
+              onClick={() => setShowEvalRunDialog(true)}
               disabled={!hasTests || runningEval || !activeVersion}
               className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] ${
                 latestRun
@@ -709,8 +738,8 @@ export default function AgentDetail() {
           {/* Improvement Panel */}
           {showImprovements && (
             <div className="border border-border rounded bg-card p-4 mt-4 space-y-4 min-w-0 overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-foreground">Suggested Improvements</h3>
                   {!loadingSuggestions && suggestions.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
@@ -718,9 +747,37 @@ export default function AgentDetail() {
                     </p>
                   )}
                 </div>
-                <button onClick={() => setShowImprovements(false)} className="p-1 hover:bg-muted rounded transition-colors">
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="inline-flex border border-border rounded-sm overflow-hidden text-[11px] font-medium">
+                    <button
+                      onClick={() => handleSuggestImprovements("standard")}
+                      disabled={loadingSuggestions}
+                      className={`px-2 py-1 transition-colors ${
+                        suggestionMode === "standard"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title="Fast suggestions from the last run"
+                    >
+                      Standard
+                    </button>
+                    <button
+                      onClick={() => handleSuggestImprovements("deep")}
+                      disabled={loadingSuggestions}
+                      className={`px-2 py-1 border-l border-border transition-colors ${
+                        suggestionMode === "deep"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title="Deeper analysis, slower"
+                    >
+                      Deep
+                    </button>
+                  </div>
+                  <button onClick={() => setShowImprovements(false)} className="p-1 hover:bg-muted rounded transition-colors">
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
 
               {loadingSuggestions && (
@@ -740,55 +797,16 @@ export default function AgentDetail() {
               {!loadingSuggestions && suggestions.length > 0 && (
                 <>
                   <div className="space-y-3">
-                    {suggestions.map((s: any) => {
-                      const isAccepted = acceptedSuggestionIds.has(s.id);
-                      const isRejected = rejectedSuggestionIds.has(s.id);
-                      return (
-                        <div key={s.id} className="border border-border rounded bg-background p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleAcceptSuggestion(s.id)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm border transition-colors ${
-                                isAccepted
-                                  ? "bg-success/15 text-success border-success/30"
-                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                              }`}
-                            >
-                              <Check className="w-3 h-3" />
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleRejectSuggestion(s.id)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm border transition-colors ${
-                                isRejected
-                                  ? "bg-destructive/15 text-destructive border-destructive/30"
-                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                              }`}
-                            >
-                              <XCircle className="w-3 h-3" />
-                              Reject
-                            </button>
-                          </div>
-                          <p className="text-sm font-semibold text-foreground">{s.failure_pattern}</p>
-                          <p className="text-xs text-muted-foreground">{s.description}</p>
-                          {s.prompt_patch && (
-                            <pre className="p-2 text-xs font-mono bg-muted/50 border border-border rounded overflow-x-auto max-w-full text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                              <code>{s.prompt_patch}</code>
-                            </pre>
-                          )}
-                          {s.affected_cases && s.affected_cases.length > 0 && (
-                            <div className="flex flex-wrap gap-1 items-center">
-                              <span className="text-[10px] text-muted-foreground">Affects {s.affected_cases.length} cases:</span>
-                              {s.affected_cases.map((c: any, i: number) => (
-                                <span key={i} className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
-                                  {typeof c === "string" ? c : c.scenario || c.name || c.id}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {suggestions.map((s) => (
+                      <SuggestionCard
+                        key={s.id}
+                        suggestion={s}
+                        accepted={acceptedSuggestionIds.has(s.id)}
+                        rejected={rejectedSuggestionIds.has(s.id)}
+                        onAccept={() => handleAcceptSuggestion(s.id)}
+                        onReject={() => handleRejectSuggestion(s.id)}
+                      />
+                    ))}
                   </div>
 
                   <p className="text-xs text-muted-foreground">
@@ -821,6 +839,16 @@ export default function AgentDetail() {
           )}
         </div>
       </div>
+
+      <NewEvalRunDialog
+        open={showEvalRunDialog}
+        onClose={() => setShowEvalRunDialog(false)}
+        activeVersion={activeVersion}
+        versions={versions}
+        onConfirm={async ({ sourceVersionId }) => {
+          await handleRunEval(sourceVersionId);
+        }}
+      />
 
       {/* Delete Modal */}
       {deleteModal && (

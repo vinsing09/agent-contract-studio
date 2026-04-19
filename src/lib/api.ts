@@ -1,3 +1,13 @@
+import type {
+  AgentSchema,
+  ContractV2,
+  TestCaseV2,
+  GenerateTestCasesResponse,
+  Suggestion,
+  ApplySuggestionsRequest,
+  ApplySuggestionsResponse,
+} from "./types";
+
 const API_BASE = "https://adina-uncomforting-wilfully.ngrok-free.dev";
 
 export interface Agent {
@@ -72,18 +82,24 @@ export interface EvalRun {
   total_count: number;
 }
 
+export type EvalResultType = "deterministic" | "semantic" | "informational" | string;
+
+export type RegressionType = "STABLE" | "REGRESSION" | "IMPROVEMENT" | "NO_PROGRESS" | string;
+
 export interface EvalResult {
   id: string;
   run_id: string;
   test_case_id: string;
-  assertion_id: string;
+  assertion_id: string | null;
   passed: boolean | null;
   reason: string;
-  result_type: string;
+  result_type: EvalResultType;
   scenario?: string;
   assertion_type?: string;
   tool_name?: string;
   param?: string;
+  latency_ms?: number | null;
+  regression_type?: RegressionType | null;
 }
 
 export interface RegressionCase {
@@ -140,6 +156,57 @@ export interface AgentVersion {
   created_at: string;
 }
 
+export interface RegressionCaseV2 {
+  test_case_id: string;
+  scenario: string;
+  failed_assertions?: { assertion_id: string; reason: string }[];
+}
+
+export interface RegressionSummary {
+  locked_cases_total: number;
+  stable_count: number;
+  regression_count: number;
+  improvement_count: number;
+  no_progress_count: number;
+}
+
+export type RegressionStatus = "PASSED" | "BLOCKED";
+
+export interface RegressionRunResponse {
+  status: RegressionStatus;
+  run_id: string;
+  challenger_version_id: string;
+  baseline_version_id: string;
+  summary: RegressionSummary;
+  regressions: RegressionCaseV2[];
+  improvements: RegressionCaseV2[];
+  no_progress?: RegressionCaseV2[];
+}
+
+export interface CreateEvalRunRequest {
+  run_type?: "full" | "regression" | string;
+  test_case_source_version_id?: string;
+  baseline_run_id?: string;
+}
+
+export interface CreateEvalRunResponse {
+  eval_run?: EvalRun;
+  id?: string;
+  [key: string]: unknown;
+}
+
+export class ApiError extends Error {
+  status: number;
+  body?: unknown;
+
+  constructor(status: number, message: string, body?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -151,7 +218,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API error ${res.status}: ${text}`);
+    let body: unknown = text;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      // non-JSON response body — keep as text
+    }
+    const detail =
+      (body && typeof body === "object" && "detail" in body && typeof (body as { detail: unknown }).detail === "string"
+        ? (body as { detail: string }).detail
+        : null) ?? text;
+    throw new ApiError(res.status, detail || `API error ${res.status}`, body);
   }
   return res.json();
 }
@@ -168,9 +245,6 @@ export const api = {
 
   generateContract: (agentId: string) =>
     request<Contract>(`/agents/${agentId}/contract/generate`, { method: "POST" }),
-
-  generateTestCases: (agentId: string) =>
-    request<TestCase[]>(`/agents/${agentId}/test-cases/generate`, { method: "POST" }),
 
   getTestCases: (agentId: string) =>
     request<TestCase[]>(`/agents/${agentId}/test-cases`),
@@ -228,6 +302,41 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  runRegression: async (agentId: string, data: {
+    challenger_version_id: string;
+    baseline_version_id: string;
+  }): Promise<RegressionRunResponse> => {
+    const res = await fetch(`${API_BASE}/agents/${agentId}/regression-run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return { ...json, status: json.status ?? "PASSED" } as RegressionRunResponse;
+    }
+    if (res.status === 422) {
+      const json = await res.json();
+      const detail = json.detail ?? json;
+      return { ...detail, status: detail.status ?? "BLOCKED" } as RegressionRunResponse;
+    }
+    let detail: string | undefined;
+    let body: unknown;
+    try {
+      body = await res.json();
+      if (body && typeof body === "object" && "detail" in body) {
+        const d = (body as { detail: unknown }).detail;
+        if (typeof d === "string") detail = d;
+      }
+    } catch {
+      body = await res.text();
+    }
+    throw new ApiError(res.status, detail ?? `Regression run failed (HTTP ${res.status})`, body);
+  },
+
   createDraft: (data: {
     name: string;
     business_goal: string;
@@ -253,34 +362,45 @@ export const api = {
   getAgentVersions: (agentId: string) =>
     request<AgentVersion[]>(`/agents/${agentId}/versions`),
 
-  extractSchema: (agentId: string) =>
-    request<any>(`/agents/${agentId}/schema/extract`, { method: "POST" }),
+  extractSchema: (agentId: string, versionId?: string) => {
+    const qs = versionId ? `?version_id=${versionId}` : "";
+    return request<AgentSchema>(`/agents/${agentId}/schema/extract${qs}`, { method: "POST" });
+  },
 
   getSchema: (agentId: string) =>
-    request<any>(`/agents/${agentId}/schema`),
+    request<AgentSchema>(`/agents/${agentId}/schema`),
 
   generateContractV2: (agentId: string, versionId: string) =>
-    request<any>(
+    request<ContractV2>(
+      `/agents/${agentId}/versions/${versionId}/contract/generate`,
+      { method: "POST" }
+    ),
+
+  regenerateContract: (agentId: string, versionId: string) =>
+    request<ContractV2>(
       `/agents/${agentId}/versions/${versionId}/contract/generate`,
       { method: "POST" }
     ),
 
   getContractV2: (agentId: string, versionId: string) =>
-    request<any>(`/agents/${agentId}/versions/${versionId}/contract`),
+    request<ContractV2>(`/agents/${agentId}/versions/${versionId}/contract`),
 
-  generateTestCasesV2: (agentId: string, versionId: string) =>
-    request<any>(
-      `/agents/${agentId}/versions/${versionId}/test-cases/generate`,
+  generateTestCasesV2: (agentId: string, versionId: string, count: number = 15) =>
+    request<GenerateTestCasesResponse>(
+      `/agents/${agentId}/versions/${versionId}/test-cases/generate?count=${count}`,
       { method: "POST" }
     ),
 
   getTestCasesV2: (agentId: string, versionId: string) =>
-    request<any[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
+    request<TestCaseV2[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
 
-  runEvalV2: (agentId: string, versionId: string) =>
-    request<any>(
+  createEvalRun: (agentId: string, versionId: string, body: CreateEvalRunRequest = {}) =>
+    request<CreateEvalRunResponse>(
       `/agents/${agentId}/versions/${versionId}/eval-runs`,
-      { method: "POST", body: JSON.stringify({ run_type: "full" }) }
+      {
+        method: "POST",
+        body: JSON.stringify({ run_type: "full", ...body }),
+      }
     ),
 
   lockTestCaseWithIntent: (id: string, intent: "protect" | "track") =>
@@ -305,19 +425,20 @@ export const api = {
   getEvalRunDetail: (runId: string) =>
     request<any>(`/eval-runs/${runId}`),
 
-  getSuggestions: (agentId: string, versionId: string, evalRunId: string) =>
-    request<{ suggestions: any[] }>(
-      `/agents/${agentId}/versions/${versionId}/improvements?eval_run_id=${evalRunId}`,
+  getSuggestions: (
+    agentId: string,
+    versionId: string,
+    evalRunId: string,
+    mode: "standard" | "deep" = "standard"
+  ) =>
+    request<{ suggestions: Suggestion[]; mode: "standard" | "deep" }>(
+      `/agents/${agentId}/versions/${versionId}/improvements?eval_run_id=${evalRunId}&mode=${mode}`,
       { method: "POST" }
     ),
 
-  applySuggestions: (agentId: string, versionId: string, data: {
-    accepted_fix_ids: string[];
-    eval_run_id: string;
-    label: string;
-  }) =>
-    request<any>(
+  applySuggestions: (agentId: string, versionId: string, body: ApplySuggestionsRequest) =>
+    request<ApplySuggestionsResponse>(
       `/agents/${agentId}/versions/${versionId}/improvements/apply`,
-      { method: "POST", body: JSON.stringify(data) }
+      { method: "POST", body: JSON.stringify(body) }
     ),
 };

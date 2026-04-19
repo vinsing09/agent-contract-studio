@@ -1,16 +1,20 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import AgentUpload from "@/pages/AgentUpload";
 import AgentList from "@/pages/AgentList";
 import AgentDetail from "@/pages/AgentDetail";
+import AgentSchema from "@/pages/AgentSchema";
+import TestCaseGenerate from "@/pages/TestCaseGenerate";
 
 import TestCaseDetail from "@/pages/TestCaseDetail";
 import EvalRunHistory from "@/pages/EvalRunHistory";
 import RegressionDashboard from "@/pages/RegressionDashboard";
 import TestCaseAgentList from "@/pages/TestCaseAgentList";
+import VersionDiff from "@/pages/VersionDiff";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +23,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
+      <Toaster />
       <BrowserRouter>
         <AppLayout>
           <Routes>
@@ -26,7 +31,10 @@ const App = () => (
             <Route path="/agents" element={<AgentList />} />
             <Route path="/agents/new" element={<AgentUpload />} />
             <Route path="/agents/:id" element={<AgentDetail />} />
-            
+            <Route path="/agents/:id/diff" element={<VersionDiff />} />
+            <Route path="/agents/:agentId/versions/:versionId/schema" element={<AgentSchema />} />
+            <Route path="/agents/:agentId/versions/:versionId/test-cases/generate" element={<TestCaseGenerate />} />
+
             <Route path="/test-cases" element={<TestCaseAgentList />} />
             
             <Route path="/agents/:agentId/test-cases/:id" element={<TestCaseDetail />} />
