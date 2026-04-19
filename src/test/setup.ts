@@ -1,4 +1,6 @@
 import "@testing-library/jest-dom";
+import { afterAll, afterEach, beforeAll } from "vitest";
+import { server } from "./server";
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -13,3 +15,7 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
