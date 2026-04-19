@@ -12,16 +12,18 @@ import {
 } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { FileText, ChevronDown, ChevronRight } from "lucide-react";
-import type { ContractV2 } from "@/lib/types";
+import type { ContractV2, TestCaseV2 } from "@/lib/types";
 import { EmptyState } from "@/components/EmptyState";
+import { ObligationCoverage } from "@/components/contract/ObligationCoverage";
 
 interface Props {
   agentId: string;
   versionId: string;
   contract: ContractV2 | null;
+  testCases?: TestCaseV2[];
 }
 
-export default function ContractPanel({ contract }: Props) {
+export default function ContractPanel({ agentId, contract, testCases }: Props) {
   const c = contract;
   const location = useLocation();
   const [obligationsOpen, setObligationsOpen] = useState(true);
@@ -47,6 +49,14 @@ export default function ContractPanel({ contract }: Props) {
 
   return (
     <div className="space-y-4">
+      {c && c.obligations.length > 0 && (
+        <ObligationCoverage
+          agentId={agentId}
+          obligations={c.obligations}
+          testCases={testCases ?? []}
+        />
+      )}
+
       {/* Obligations */}
       <Card>
         <Collapsible open={obligationsOpen} onOpenChange={setObligationsOpen}>
