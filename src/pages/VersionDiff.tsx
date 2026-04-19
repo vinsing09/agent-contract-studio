@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { api, type AgentVersion } from "@/lib/api";
+import { parseApiError } from "@/lib/utils";
 import type { ContractV2 } from "@/lib/types";
 import { VersionPicker } from "@/components/version-diff/VersionPicker";
 import { PromptDiff } from "@/components/version-diff/PromptDiff";
@@ -23,10 +24,12 @@ export default function VersionDiff() {
   const [loading, setLoading] = useState(true);
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [tab, setTab] = useState<Tab>("prompt");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
+    setError(null);
     api.getAgentVersions(id)
       .then((list) => {
         const sorted = [...list].sort((a, b) => b.version_number - a.version_number);
@@ -38,6 +41,7 @@ export default function VersionDiff() {
           setSearchParams(next, { replace: true });
         }
       })
+      .catch((err) => setError(parseApiError(err)))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -80,6 +84,23 @@ export default function VersionDiff() {
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-4">
+        <Link to={`/agents/${id}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-3 h-3" /> Back to agent
+        </Link>
+        <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded p-4 text-sm flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">Couldn't load versions</div>
+            <div className="text-xs mt-1 opacity-80">{error}</div>
+          </div>
         </div>
       </div>
     );

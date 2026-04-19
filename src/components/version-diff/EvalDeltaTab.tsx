@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { api, type EvalRun, type EvalResult } from "@/lib/api";
+import { parseApiError } from "@/lib/utils";
 
 interface Props {
   agentId: string;
@@ -45,9 +46,11 @@ export function EvalDeltaTab({ agentId, leftVersionId, rightVersionId }: Props) 
   const [loading, setLoading] = useState(true);
   const [left, setLeft] = useState<VersionStats | null>(null);
   const [right, setRight] = useState<VersionStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     Promise.all([
       fetchLatestRunStats(agentId, leftVersionId),
       fetchLatestRunStats(agentId, rightVersionId),
@@ -56,6 +59,7 @@ export function EvalDeltaTab({ agentId, leftVersionId, rightVersionId }: Props) 
         setLeft(l);
         setRight(r);
       })
+      .catch((err) => setError(parseApiError(err)))
       .finally(() => setLoading(false));
   }, [agentId, leftVersionId, rightVersionId]);
 
@@ -63,6 +67,18 @@ export function EvalDeltaTab({ agentId, leftVersionId, rightVersionId }: Props) 
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="w-4 h-4 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded p-4 text-sm flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+        <div>
+          <div className="font-medium">Couldn't load eval data</div>
+          <div className="text-xs mt-1 opacity-80">{error}</div>
+        </div>
       </div>
     );
   }
