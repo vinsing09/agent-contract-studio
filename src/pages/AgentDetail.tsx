@@ -578,6 +578,7 @@ export default function AgentDetail() {
                     ? (contract as ContractV2)
                     : null
                 }
+                testCases={testCases as any}
               />
             )}
           </section>
