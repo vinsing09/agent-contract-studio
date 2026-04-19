@@ -9,6 +9,7 @@ import { PromptDiff } from "@/components/version-diff/PromptDiff";
 import { SchemaDiff } from "@/components/version-diff/SchemaDiff";
 import { ContractDiff } from "@/components/version-diff/ContractDiff";
 import { EvalDeltaTab } from "@/components/version-diff/EvalDeltaTab";
+import { VersionDiffSummary } from "@/components/version-diff/VersionDiffSummary";
 
 type Tab = "prompt" | "schema" | "contract" | "eval";
 
@@ -165,6 +166,14 @@ export default function VersionDiff() {
         </div>
       ) : (
         <>
+          <VersionDiffSummary
+            leftVersion={leftVersion}
+            rightVersion={rightVersion}
+            leftContract={leftContract}
+            rightContract={rightContract}
+            onJump={setTab}
+          />
+
           <div className="border-b border-border flex items-center gap-1">
             {tabs.map((t) => (
               <button
