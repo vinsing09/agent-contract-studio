@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { api, type AgentDraft, type AuditReport } from "@/lib/api";
 import { CodeBlock } from "@/components/ui-shared";
@@ -77,8 +78,9 @@ export default function AgentUpload() {
 
   const [draft, setDraft] = useState<AgentDraft | null>(null);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
-  const [acceptedFixIds, setAcceptedFixIds] = useState<Set<string>>(new Set());
+  const [rejectedFixIds, setRejectedFixIds] = useState<Set<string>>(new Set());
   const [expandedFixes, setExpandedFixes] = useState<Set<string>>(new Set());
+  const [reviewedFixIds, setReviewedFixIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -123,40 +125,62 @@ export default function AgentUpload() {
       const report = await api.auditDraft(d.id);
       setAuditReport(report);
 
-      const allFixIds = new Set(
-        (report.suggested_fixes ?? []).map((f) => f.id)
-      );
-      setAcceptedFixIds(allFixIds);
+      setRejectedFixIds(new Set());
+      setReviewedFixIds(new Set());
 
       setStep(3);
     } catch (err: any) {
-      setError(err.message);
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
   };
 
   const handleCommit = async () => {
-    if (!draft) return;
+    if (!draft || !auditReport) return;
     setLoading(true);
     setError("");
     try {
-      const result = await api.commitDraft(
-        draft.id,
-        Array.from(acceptedFixIds)
-      );
+      const acceptedIds = (auditReport.suggested_fixes ?? [])
+        .filter((f) => !rejectedFixIds.has(f.id))
+        .map((f) => f.id);
+      const result = await api.commitDraft(draft.id, acceptedIds);
       navigate(`/agents/${result.agent_id}`);
     } catch (err: any) {
-      setError(err.message);
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleFix = (fixId: string) => {
-    setAcceptedFixIds((prev) => {
+  // markReviewed is now inlined in acceptFix/rejectFix
+
+  const acceptFix = (fixId: string) => {
+    console.log("[AcceptFix] fixId:", fixId);
+    setRejectedFixIds((prev) => {
       const next = new Set(prev);
-      next.has(fixId) ? next.delete(fixId) : next.add(fixId);
+      next.delete(fixId);
+      return next;
+    });
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      console.log("[AcceptFix] reviewedFixIds size:", next.size);
+      return next;
+    });
+  };
+
+  const rejectFix = (fixId: string) => {
+    console.log("[RejectFix] fixId:", fixId);
+    setRejectedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      return next;
+    });
+    setReviewedFixIds((prev) => {
+      const next = new Set(prev);
+      next.add(fixId);
+      console.log("[RejectFix] reviewedFixIds size:", next.size);
       return next;
     });
   };
@@ -177,9 +201,13 @@ export default function AgentUpload() {
     return "bg-muted text-muted-foreground border-border";
   };
 
-  const acceptedCount = acceptedFixIds.size;
-  const totalFixes = auditReport?.suggested_fixes?.length ?? 0;
-  const rejectedCount = totalFixes - acceptedCount;
+  const reviewableFixes = (auditReport?.issues ?? []).flatMap((issue) => {
+    const fix = auditReport?.suggested_fixes?.find((f) => f.issue_id === issue.id);
+    return fix ? [fix] : [];
+  });
+  const totalFixes = reviewableFixes.length;
+  const acceptedCount = reviewableFixes.filter((fix) => !rejectedFixIds.has(fix.id)).length;
+  const rejectedCount = reviewableFixes.filter((fix) => rejectedFixIds.has(fix.id)).length;
 
   return (
     <div className="px-6 py-8 max-w-[680px] mx-auto animate-fade-in">
@@ -382,25 +410,62 @@ export default function AgentUpload() {
                 (f) => f.issue_id === issue.id
               );
               const isExpanded = expandedFixes.has(issue.id);
+              const isRejected = fix ? rejectedFixIds.has(fix.id) : false;
+              const isReviewed = fix ? reviewedFixIds.has(fix.id) : false;
+              const isAccepted = isReviewed && !isRejected;
               return (
                 <div
                   key={issue.id}
-                  className="border border-border rounded bg-card overflow-hidden"
+                  className={`border rounded bg-card overflow-hidden transition-colors ${
+                    fix && isRejected
+                      ? "border-red-500/30 opacity-50"
+                      : fix && isAccepted
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-border"
+                  }`}
                 >
                   <div className="px-4 py-3 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded border uppercase ${severityColor(
-                          issue.severity
-                        )}`}
-                      >
-                        {issue.severity}
-                      </span>
-                      <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded border border-border bg-muted text-muted-foreground">
-                        {issue.gap_type.replace("_", " ")}
-                      </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded border uppercase ${severityColor(
+                            issue.severity
+                          )}`}
+                        >
+                          {issue.severity}
+                        </span>
+                        <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded border border-border bg-muted text-muted-foreground">
+                          {issue.gap_type.replace("_", " ")}
+                        </span>
+                      </div>
+                      {fix && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => acceptFix(fix.id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-colors ${
+                              isAccepted
+                                ? "bg-emerald-600 text-white border border-emerald-600"
+                                : "bg-card border border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" /> Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => rejectFix(fix.id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-colors ${
+                              isRejected
+                                ? "bg-red-500 text-white border border-red-500"
+                                : "bg-card border border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <X className="w-3 h-3" /> Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-foreground">
+                    <p className={`text-sm ${isRejected ? "text-muted-foreground/50 line-through" : "text-foreground"}`}>
                       {issue.description}
                     </p>
                   </div>
@@ -420,38 +485,22 @@ export default function AgentUpload() {
                       </button>
 
                       {isExpanded && (
-                        <div className="px-4 pb-3 border-t border-border pt-3 space-y-3">
-                          <p className="text-sm text-muted-foreground italic">
+                        <div className={`px-4 pb-3 border-t pt-3 space-y-3 transition-colors ${
+                          isRejected
+                            ? "border-destructive/30 bg-destructive/5"
+                            : "border-border"
+                        }`}>
+                          <p className={`text-sm italic ${
+                            isRejected
+                              ? "text-muted-foreground/50 line-through"
+                              : "text-muted-foreground"
+                          }`}>
                             {fix.description}
                           </p>
-                          <CodeBlock label="Prompt Patch">
-                            {fix.prompt_patch}
-                          </CodeBlock>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() =>
-                                !acceptedFixIds.has(fix.id) && toggleFix(fix.id)
-                              }
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                                acceptedFixIds.has(fix.id)
-                                  ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                                  : "bg-card border border-border text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <Check className="w-3 h-3" /> Accept
-                            </button>
-                            <button
-                              onClick={() =>
-                                acceptedFixIds.has(fix.id) && toggleFix(fix.id)
-                              }
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                                !acceptedFixIds.has(fix.id)
-                                  ? "bg-destructive/10 text-destructive border border-destructive/30"
-                                  : "bg-card border border-border text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <X className="w-3 h-3" /> Reject
-                            </button>
+                          <div className={isRejected ? "opacity-50 line-through decoration-destructive/50" : ""}>
+                            <CodeBlock label="Prompt Patch">
+                              {fix.prompt_patch}
+                            </CodeBlock>
                           </div>
                         </div>
                       )}
@@ -465,10 +514,15 @@ export default function AgentUpload() {
           {/* Summary & Action */}
           <div className="space-y-3 pt-2">
             {totalFixes > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {acceptedCount} fix{acceptedCount !== 1 ? "es" : ""} accepted,{" "}
-                {rejectedCount} rejected
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {reviewedFixIds.size} of {totalFixes} fixes reviewed
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {acceptedCount} fix{acceptedCount !== 1 ? "es" : ""} accepted,{" "}
+                  {rejectedCount} rejected
+                </p>
+              </div>
             )}
 
             {error && (
@@ -477,19 +531,28 @@ export default function AgentUpload() {
               </div>
             )}
 
-            <button
-              onClick={handleCommit}
-              disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
-            >
-              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {loading ? "Creating v1..." : "Generate v1 Agent →"}
-            </button>
+            {(() => {
+              const allReviewed = reviewedFixIds.size === totalFixes;
+              const remaining = totalFixes - reviewedFixIds.size;
+              return (
+                <>
+                  <button
+                    onClick={handleCommit}
+                    disabled={loading || !allReviewed}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 active:scale-[0.97]"
+                  >
+                    {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {loading ? "Creating v1..." : "Generate v1 Agent →"}
+                  </button>
 
-            <p className="text-xs text-muted-foreground text-center">
-              v1 will be created from your original prompt with accepted fixes
-              applied.
-            </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {!allReviewed
+                      ? `Review all ${remaining} remaining fix${remaining !== 1 ? "es" : ""} to continue`
+                      : `Ready — ${acceptedCount} fix${acceptedCount !== 1 ? "es" : ""} will be applied to v1`}
+                  </p>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseApiError } from "@/lib/utils";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type TestCaseDetail, type EvalResult } from "@/lib/api";
 import { CodeBlock, StatusBadge } from "@/components/ui-shared";
@@ -39,19 +40,19 @@ export default function TestCaseDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Resolve agentId from URL or from test case data
+  const resolvedAgentId = agentId || (tc as any)?.agent_id;
+
   useEffect(() => {
-    if (!agentId) return;
-    api.getAgent(agentId)
+    if (!resolvedAgentId) return;
+    api.getAgent(resolvedAgentId)
       .then((agent) => setAgentName(agent.name))
       .catch(() => {});
-  }, [agentId]);
+  }, [resolvedAgentId]);
 
   // Fetch latest eval run results for this test case
   useEffect(() => {
-    if (!id) return;
-    // Use agentId from URL, or from test case data
-    const resolvedAgentId = agentId;
-    if (!resolvedAgentId) return;
+    if (!id || !resolvedAgentId) return;
 
     setEvalLoading(true);
     api.getEvalRuns()
@@ -69,7 +70,7 @@ export default function TestCaseDetailPage() {
       })
       .catch(() => {})
       .finally(() => setEvalLoading(false));
-  }, [agentId, id]);
+  }, [resolvedAgentId, id]);
 
   const toggleCall = (i: number) => {
     setExpandedCalls((prev) => {
@@ -91,7 +92,7 @@ export default function TestCaseDetailPage() {
       }
       setTc({ ...tc, locked: !tc.locked });
     } catch (err: any) {
-      setLockError(err.message);
+      setLockError(parseApiError(err));
     } finally {
       setLockLoading(false);
     }
@@ -116,7 +117,11 @@ export default function TestCaseDetailPage() {
     );
   }
 
-  const toolStubs = Array.isArray(tc.tool_stubs) ? tc.tool_stubs : [];
+  const toolStubEntries = tc.tool_stubs && typeof tc.tool_stubs === 'object' && !Array.isArray(tc.tool_stubs)
+    ? Object.entries(tc.tool_stubs as Record<string, any>)
+    : Array.isArray(tc.tool_stubs)
+      ? (tc.tool_stubs as any[]).map((s: any, i: number) => [s.name || `stub_${i}`, s])
+      : [];
   const assertions = Array.isArray(tc.assertions) ? tc.assertions : [];
   const passedCount = evalResults.filter((r) => r.passed === true).length;
   const hasEvalResults = evalResults.length > 0;
@@ -131,37 +136,58 @@ export default function TestCaseDetailPage() {
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink asChild><Link to="/test-cases">Test Cases</Link></BreadcrumbLink>
+            <BreadcrumbLink asChild><Link to="/agents">Agents</Link></BreadcrumbLink>
           </BreadcrumbItem>
-          {agentId && (
+          {resolvedAgentId && (
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink asChild><Link to={`/agents/${agentId}/test-cases`}>{agentName || "Agent"}</Link></BreadcrumbLink>
+                <BreadcrumbLink asChild><Link to={`/agents/${resolvedAgentId}`}>{agentName || "Agent"}</Link></BreadcrumbLink>
               </BreadcrumbItem>
             </>
           )}
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to={resolvedAgentId ? `/test-cases?agent=${resolvedAgentId}` : "/test-cases"}>Test Cases</Link></BreadcrumbLink>
+          </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage>{tc?.scenario ? (tc.scenario.length > 40 ? tc.scenario.slice(0, 40) + "…" : tc.scenario) : "Detail"}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+      {resolvedAgentId && (
+        <Link
+          to={`/agents/${resolvedAgentId}`}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to {agentName || "Agent"}
+        </Link>
+      )}
       <div className="flex items-start justify-between mb-1 gap-4">
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="text-lg font-semibold text-foreground truncate">{tc.scenario}</h1>
           {tc.locked && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-primary/15 text-primary border border-primary/30 rounded-sm shrink-0">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-sm shrink-0 ${
+              tc.locked_at_pass === 1 ? "bg-green-500/15 text-green-400 border border-green-500/30" :
+              tc.locked_at_pass === 0 ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+              "bg-muted text-muted-foreground border border-border"
+            }`}>
               <Lock className="w-3 h-3" />
-              Regression Case
+              {tc.locked_at_pass === 1 ? "Must Hold" : tc.locked_at_pass === 0 ? "Watching" : "Spec Case"}
             </span>
           )}
         </div>
         <div className="shrink-0 flex items-center gap-2">
           {tc.locked ? (
             <>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded">
-                🔒 Regression Case
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded ${
+                tc.locked_at_pass === 1 ? "bg-green-500/15 text-green-400 border border-green-500/30" :
+                tc.locked_at_pass === 0 ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+                "bg-muted text-muted-foreground border border-border"
+              }`}>
+                🔒 {tc.locked_at_pass === 1 ? "Must Hold" : tc.locked_at_pass === 0 ? "Watching" : "Spec Case"}
               </span>
               <button
                 onClick={handleToggleLock}
@@ -178,7 +204,7 @@ export default function TestCaseDetailPage() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-primary/30 text-primary rounded hover:bg-primary/10 transition-colors disabled:opacity-50 active:scale-[0.97]"
             >
               {lockLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Lock className="w-3 h-3" />}
-              Lock as Regression Case
+              Lock
             </button>
           )}
         </div>
@@ -200,45 +226,62 @@ export default function TestCaseDetailPage() {
 
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tool Stubs</h2>
-            <div className="space-y-2">
-              {toolStubs.map((stub, i) => (
-                <div key={i} className="border border-border rounded bg-card">
-                  <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm text-foreground font-medium">{stub.name}</span>
-                    {stub.latency_ms != null && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
-                        <Clock className="w-2.5 h-2.5" />
-                        {stub.latency_ms}ms
-                      </span>
-                    )}
-                    {stub.simulate_failure && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">
-                        FAILURE SIMULATED
-                      </span>
-                    )}
+            {toolStubEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No tool stubs configured for this test case.</p>
+            ) : (
+              <div className="space-y-2">
+                {toolStubEntries.map(([toolName, stub]) => (
+                  <div key={toolName} className="border border-border rounded bg-card">
+                    <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm text-foreground font-medium">{toolName}</span>
+                      {stub.latency_ms != null && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">
+                          <Clock className="w-2.5 h-2.5" />
+                          {stub.latency_ms}ms
+                        </span>
+                      )}
+                      {stub.simulate_failure ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-destructive/15 text-destructive border border-destructive/30 rounded-sm">
+                          Simulates Failure
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-success/15 text-success border border-success/30 rounded-sm">
+                          Normal
+                        </span>
+                      )}
+                    </div>
+                    <div className="border-t border-border">
+                      <CodeBlock>{JSON.stringify(stub.response, null, 2)}</CodeBlock>
+                    </div>
                   </div>
-                  <div className="border-t border-border">
-                    <CodeBlock>{JSON.stringify(stub.response, null, 2)}</CodeBlock>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Assertions</h2>
             <div className="space-y-1">
-              {assertions.map((a, i) => {
+              {assertions.map((a: any, i: number) => {
                 const typeStyle = assertionTypeColors[a.type] || "bg-muted text-muted-foreground border-border";
                 return (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 border border-border rounded bg-card text-sm flex-wrap">
                     <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm shrink-0 ${typeStyle}`}>
                       {a.type}
                     </span>
-                    {a.tool_name && <span className="font-mono text-foreground text-xs">{a.tool_name}</span>}
-                    {a.param && <span className="text-muted-foreground text-xs">.{a.param}</span>}
-                    {a.expected != null && (
-                      <span className="text-xs text-muted-foreground font-mono">= {JSON.stringify(a.expected)}</span>
+                    {(a.tool_name || a.tool) && (
+                      <span className="font-mono text-foreground text-xs">{a.tool_name || a.tool}</span>
+                    )}
+                    {a.param && (
+                      <span className="text-muted-foreground text-xs font-mono">.{a.param}</span>
+                    )}
+                    {(a.expected != null || a.value != null) && (
+                      <span className="text-xs text-muted-foreground font-mono">= {JSON.stringify(a.expected ?? a.value)}</span>
+                    )}
+                    {a.required && (
+                      <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-warning/15 text-warning border border-warning/30 rounded-sm shrink-0 ml-auto">
+                        required
+                      </span>
                     )}
                   </div>
                 );
@@ -349,6 +392,11 @@ export default function TestCaseDetailPage() {
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-border rounded bg-card">
                 <Inbox className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm">Run eval to see results</p>
+                {resolvedAgentId && (
+                  <Link to={`/agents/${resolvedAgentId}`} className="text-xs text-primary hover:underline mt-2">
+                    ← Back to {agentName || "agent"} to run eval
+                  </Link>
+                )}
               </div>
             ) : null}
           </section>

@@ -29,6 +29,8 @@ export interface TestCase {
   assertions: Assertion[];
   tool_stubs: ToolStub[];
   locked: boolean;
+  lock_type?: string | null;
+  locked_at_pass?: number | null;
   status?: "PASS" | "FAIL" | "PENDING";
 }
 
@@ -213,6 +215,19 @@ export const api = {
       },
     }),
 
+  runRegressionV2: (agentId: string, data: {
+    challenger_version_id: string;
+    baseline_version_id: string;
+  }) =>
+    fetch(`${API_BASE}/agents/${agentId}/regression-run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(data),
+    }),
+
   createDraft: (data: {
     name: string;
     business_goal: string;
@@ -237,4 +252,72 @@ export const api = {
 
   getAgentVersions: (agentId: string) =>
     request<AgentVersion[]>(`/agents/${agentId}/versions`),
+
+  extractSchema: (agentId: string) =>
+    request<any>(`/agents/${agentId}/schema/extract`, { method: "POST" }),
+
+  getSchema: (agentId: string) =>
+    request<any>(`/agents/${agentId}/schema`),
+
+  generateContractV2: (agentId: string, versionId: string) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/contract/generate`,
+      { method: "POST" }
+    ),
+
+  getContractV2: (agentId: string, versionId: string) =>
+    request<any>(`/agents/${agentId}/versions/${versionId}/contract`),
+
+  generateTestCasesV2: (agentId: string, versionId: string) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/test-cases/generate`,
+      { method: "POST" }
+    ),
+
+  getTestCasesV2: (agentId: string, versionId: string) =>
+    request<any[]>(`/agents/${agentId}/versions/${versionId}/test-cases`),
+
+  runEvalV2: (agentId: string, versionId: string) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/eval-runs`,
+      { method: "POST", body: JSON.stringify({ run_type: "full" }) }
+    ),
+
+  lockTestCaseWithIntent: (id: string, intent: "protect" | "track") =>
+    request<any>(`/test-cases/${id}/lock`, {
+      method: "POST",
+      body: JSON.stringify({ intent }),
+    }),
+
+  getTestCaseDetail: (id: string) =>
+    request<any>(`/test-cases/${id}`),
+
+  createVersion: (agentId: string, data: {
+    system_prompt: string;
+    tool_schemas: any[];
+    label: string;
+  }) =>
+    request<AgentVersion>(`/agents/${agentId}/versions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getEvalRunDetail: (runId: string) =>
+    request<any>(`/eval-runs/${runId}`),
+
+  getSuggestions: (agentId: string, versionId: string, evalRunId: string) =>
+    request<{ suggestions: any[] }>(
+      `/agents/${agentId}/versions/${versionId}/improvements?eval_run_id=${evalRunId}`,
+      { method: "POST" }
+    ),
+
+  applySuggestions: (agentId: string, versionId: string, data: {
+    accepted_fix_ids: string[];
+    eval_run_id: string;
+    label: string;
+  }) =>
+    request<any>(
+      `/agents/${agentId}/versions/${versionId}/improvements/apply`,
+      { method: "POST", body: JSON.stringify(data) }
+    ),
 };

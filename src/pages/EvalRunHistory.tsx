@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { api, type EvalRun, type EvalResult, type Agent } from "@/lib/api";
+import { api, type EvalRun, type EvalResult, type Agent, type AgentVersion } from "@/lib/api";
+import { parseApiError } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui-shared";
-import { Loader2, AlertCircle, PlayCircle, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import {
+  Loader2, AlertCircle, PlayCircle,
+  Trash2, ArrowLeft, CheckCircle2, Clock
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function PassedBadge({ passed }: { passed: boolean | null }) {
@@ -17,21 +21,19 @@ function PassedBadge({ passed }: { passed: boolean | null }) {
   );
 }
 
-function formatAssertionLabel(r: EvalResult): string {
-  if (r.assertion_type && r.tool_name && r.param) {
-    return `${r.assertion_type}: ${r.tool_name} → ${r.param}`;
-  }
-  if (r.assertion_type && r.tool_name) {
-    return `${r.assertion_type}: ${r.tool_name}`;
-  }
-  if (r.assertion_type) {
-    return r.assertion_type;
-  }
-  return r.assertion_id;
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+    ", " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
 }
 
-function groupByTestCase(results: EvalResult[]): Record<string, EvalResult[]> {
-  const groups: Record<string, EvalResult[]> = {};
+function formatLatency(ms: number): string {
+  return ms >= 1000 ? ms.toLocaleString() + "ms" : ms + "ms";
+}
+
+function groupByTestCase(results: any[]): Record<string, any[]> {
+  const groups: Record<string, any[]> = {};
   for (const r of results) {
     const key = r.test_case_id ?? "unknown";
     if (!groups[key]) groups[key] = [];
@@ -40,66 +42,101 @@ function groupByTestCase(results: EvalResult[]): Record<string, EvalResult[]> {
   return groups;
 }
 
+function computeAvgLatency(results: any[]): number | null {
+  const latencies = results.filter((r: any) => r.latency_ms != null).map((r: any) => r.latency_ms);
+  if (latencies.length === 0) return null;
+  return Math.round(latencies.reduce((a: number, b: number) => a + b, 0) / latencies.length);
+}
+
+type View = { type: "list" } | { type: "detail"; runId: string };
+
 export default function EvalRunHistory() {
   const [runs, setRuns] = useState<EvalRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [expandedRun, setExpandedRun] = useState<string | null>(null);
-  const [results, setResults] = useState<Record<string, EvalResult[]>>({});
-  const [loadingResults, setLoadingResults] = useState<string | null>(null);
-  const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number }>>({});
   const [agentNames, setAgentNames] = useState<Record<string, string>>({});
+  const [versionMap, setVersionMap] = useState<Record<string, number>>({});
+  const [passRates, setPassRates] = useState<Record<string, { passed: number; total: number; avgLatency: number | null }>>({});
   const [deleteModal, setDeleteModal] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Detail view state
+  const [view, setView] = useState<View>({ type: "list" });
+  const [detailData, setDetailData] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [scenarioMap, setScenarioMap] = useState<Record<string, string>>({});
+  const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     setLoading(true);
-    api.getAgents()
-      .then((agents) => {
-        const map: Record<string, string> = {};
-        for (const a of agents) map[a.id] = a.name;
-        setAgentNames(map);
-      })
-      .catch(() => {});
 
-    api.getEvalRuns()
-      .then(async (fetchedRuns) => {
-        setRuns(fetchedRuns);
-        const rates: Record<string, { passed: number; total: number }> = {};
-        await Promise.all(
-          fetchedRuns.map(async (run) => {
-            try {
-              const r = await api.getEvalRunResults(run.id);
-              setResults((prev) => ({ ...prev, [run.id]: r }));
-              const passed = r.filter((res) => res.passed === true).length;
-              rates[run.id] = { passed, total: r.length };
-            } catch {
-              rates[run.id] = { passed: 0, total: 0 };
-            }
-          })
-        );
-        setPassRates(rates);
-      })
-      .catch((err) => setError(err.message))
+    const agentPromise = api.getAgents().then((agents) => {
+      const nameMap: Record<string, string> = {};
+      for (const a of agents) nameMap[a.id] = a.name;
+      setAgentNames(nameMap);
+
+      return Promise.all(
+        agents.map((a) =>
+          api.getAgentVersions(a.id).then((versions) => {
+            const vm: Record<string, number> = {};
+            for (const v of versions) vm[v.id] = v.version_number;
+            return vm;
+          }).catch(() => ({} as Record<string, number>))
+        )
+      ).then((maps) => {
+        const merged: Record<string, number> = {};
+        for (const m of maps) Object.assign(merged, m);
+        setVersionMap(merged);
+      });
+    }).catch(() => {});
+
+    const runsPromise = api.getEvalRuns().then(async (fetchedRuns) => {
+      setRuns(fetchedRuns);
+      const rates: Record<string, { passed: number; total: number; avgLatency: number | null }> = {};
+      await Promise.all(
+        fetchedRuns.map(async (run) => {
+          try {
+            const results = await api.getEvalRunResults(run.id);
+            const passed = results.filter((res) => res.passed === true).length;
+            const avgLat = computeAvgLatency(results);
+            rates[run.id] = { passed, total: results.length, avgLatency: avgLat };
+          } catch {
+            rates[run.id] = { passed: 0, total: 0, avgLatency: null };
+          }
+        })
+      );
+      setPassRates(rates);
+    });
+
+    Promise.all([agentPromise, runsPromise])
+      .catch((err) => setError(parseApiError(err)))
       .finally(() => setLoading(false));
   }, []);
 
-  const toggleExpand = async (runId: string) => {
-    if (expandedRun === runId) {
-      setExpandedRun(null);
-      return;
-    }
-    setExpandedRun(runId);
-    if (!results[runId]) {
-      setLoadingResults(runId);
-      try {
-        const r = await api.getEvalRunResults(runId);
-        setResults((prev) => ({ ...prev, [runId]: r }));
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoadingResults(null);
-      }
+  const openDetail = async (runId: string) => {
+    setView({ type: "detail", runId });
+    setDetailLoading(true);
+    setDetailData(null);
+    try {
+      const data = await api.getEvalRunDetail(runId);
+      setDetailData(data);
+
+      const tcIds = new Set((data.results ?? []).map((r: any) => r.test_case_id).filter(Boolean));
+      const scenarios: Record<string, string> = {};
+      await Promise.all(
+        Array.from(tcIds).map(async (tcId) => {
+          try {
+            const tc = await api.getTestCaseDetail(tcId as string);
+            if (tc?.scenario) scenarios[tcId as string] = tc.scenario;
+          } catch {}
+        })
+      );
+      setScenarioMap(scenarios);
+    } catch (err: any) {
+      setError(parseApiError(err));
+      setView({ type: "list" });
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -110,12 +147,20 @@ export default function EvalRunHistory() {
       await api.deleteEvalRun(deleteModal);
       setRuns((prev) => prev.filter((r) => r.id !== deleteModal));
       setDeleteModal(null);
-      if (expandedRun === deleteModal) setExpandedRun(null);
+      if (view.type === "detail" && view.runId === deleteModal) setView({ type: "list" });
     } catch (err: any) {
-      setError(err.message);
+      setError(parseApiError(err));
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const toggleReason = (id: string) => {
+    setExpandedReasons((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   if (loading) {
@@ -133,6 +178,191 @@ export default function EvalRunHistory() {
   sortedRuns.forEach((run, i) => { runNumberMap[run.id] = i + 1; });
   const displayRuns = [...sortedRuns].reverse();
 
+  // ─── DETAIL VIEW ───
+  if (view.type === "detail") {
+    const run = runs.find((r) => r.id === view.runId);
+
+    if (detailLoading) {
+      return (
+        <div className="px-6 py-6 animate-fade-in">
+          <button onClick={() => setView({ type: "list" })} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Eval Runs
+          </button>
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          </div>
+        </div>
+      );
+    }
+
+    const evalRun = detailData?.eval_run ?? run;
+    const summary = detailData?.summary ?? {};
+    const results: any[] = detailData?.results ?? [];
+    const grouped = groupByTestCase(results);
+
+    const total = summary.total ?? results.length;
+    const passed = summary.passed ?? results.filter((r: any) => r.passed === true).length;
+    const failed = summary.failed ?? results.filter((r: any) => r.passed === false).length;
+    const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+    const avgLatency = computeAvgLatency(results);
+    const versionId = evalRun?.agent_version_id;
+    const versionNum = versionId ? versionMap[versionId] : null;
+    const agentId = evalRun?.agent_id ?? run?.agent_id;
+    const agentName = agentId ? agentNames[agentId] : "Unknown";
+    const runType = evalRun?.run_type ?? run?.run_type ?? "full";
+    const status = evalRun?.status ?? run?.status;
+
+    // Safely extract deterministic/semantic counts from summary
+    const detCount = summary.deterministic;
+    const semCount = summary.semantic;
+
+    return (
+      <div className="px-6 py-6 animate-fade-in">
+        <button onClick={() => { setView({ type: "list" }); setExpandedReasons(new Set()); }} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Eval Runs
+        </button>
+
+        {error && (
+          <div className="mb-4 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />{error}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="mb-6 space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg font-semibold text-foreground">Run #{runNumberMap[view.runId] ?? "?"}</h1>
+            <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${runType === "full" ? "bg-primary/15 text-primary border-primary/30" : "bg-purple-500/15 text-purple-400 border-purple-500/30"}`}>
+              {runType}
+            </span>
+            <StatusBadge status={status} />
+            {versionNum != null && (
+              <span className="inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border rounded-sm">v{versionNum}</span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">{agentName}</p>
+
+          <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success" />
+              <span className="text-sm font-medium text-foreground">{passed}/{total} passed ({pct}%)</span>
+            </div>
+            {avgLatency != null && (
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{formatLatency(avgLatency)} avg</span>
+              </div>
+            )}
+            {evalRun?.started_at && (
+              <span className="text-xs text-muted-foreground">{formatDate(evalRun.started_at)}</span>
+            )}
+          </div>
+
+          {/* Summary breakdown */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {detCount != null && (
+              <span>Deterministic: {typeof detCount === "object" ? `${detCount.passed}/${detCount.total}` : detCount}</span>
+            )}
+            {semCount != null && (
+              <span>Semantic: {typeof semCount === "object" ? `${semCount.passed}/${semCount.total}` : semCount}</span>
+            )}
+            {failed > 0 && <span className="text-destructive">Failed: {failed}</span>}
+          </div>
+        </div>
+
+        {/* Results table */}
+        {results.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No results for this run.</p>
+        ) : (
+          <div className="border border-border rounded overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Scenario</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assertion</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-16">Result</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Reason</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-20">Latency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(grouped).map(([tcId, assertions]) => {
+                  const scenario = scenarioMap[tcId] || assertions[0]?.scenario || `Test ${tcId.slice(0, 10)}…`;
+                  return (
+                    <React.Fragment key={tcId}>
+                      <tr className="border-b border-border bg-muted/20">
+                        <td colSpan={6} className="px-3 py-2">
+                          <span className="text-xs font-medium text-foreground">{scenario}</span>
+                          <span className="ml-2 text-[10px] font-mono text-muted-foreground">{tcId.slice(0, 12)}…</span>
+                        </td>
+                      </tr>
+                      {assertions.map((r: any, i: number) => {
+                        const reasonId = `${tcId}-${i}`;
+                        const reason = r.reason || "—";
+                        const isTruncated = reason.length > 100;
+                        const showFull = expandedReasons.has(reasonId);
+                        return (
+                          <tr key={r.id ?? i} className="border-b border-border hover:bg-muted/10 transition-colors">
+                            <td className="px-3 py-2"></td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${
+                                r.result_type === "semantic"
+                                  ? "bg-primary/15 text-primary border-primary/30"
+                                  : "bg-muted text-muted-foreground border-border"
+                              }`}>
+                                {r.result_type || "—"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs font-mono text-foreground">
+                              {r.assertion_id ?? "—"}
+                            </td>
+                            <td className="px-3 py-2">
+                              <PassedBadge passed={r.passed} />
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground max-w-[300px]">
+                              {isTruncated && !showFull ? (
+                                <span>
+                                  {reason.slice(0, 100)}…{" "}
+                                  <button onClick={() => toggleReason(reasonId)} className="text-primary hover:underline text-[11px]">show more</button>
+                                </span>
+                              ) : isTruncated && showFull ? (
+                                <span>
+                                  {reason}{" "}
+                                  <button onClick={() => toggleReason(reasonId)} className="text-primary hover:underline text-[11px]">show less</button>
+                                </span>
+                              ) : (
+                                reason
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs font-mono text-muted-foreground">
+                              {r.latency_ms != null ? formatLatency(r.latency_ms) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Next step guidance */}
+        {results.length > 0 && agentId && (
+          <div className="mt-4 flex items-center gap-2 px-3 py-2 text-xs bg-muted/50 border border-border rounded text-muted-foreground">
+            <span className="text-foreground">→</span>
+            <a href={`/agents/${agentId}/test-cases`} className="text-primary hover:underline">
+              Lock passing cases to protect them from regression
+            </a>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── LIST VIEW ───
   return (
     <div className="px-6 py-6 animate-fade-in">
       <h1 className="text-lg font-semibold text-foreground mb-1">Eval Runs</h1>
@@ -140,8 +370,7 @@ export default function EvalRunHistory() {
 
       {error && (
         <div className="mb-4 px-3 py-2 text-sm bg-destructive/10 border border-destructive/30 rounded text-destructive flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {error}
+          <AlertCircle className="w-4 h-4 shrink-0" />{error}
         </div>
       )}
 
@@ -155,138 +384,78 @@ export default function EvalRunHistory() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-8"></th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Run</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Started</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass Rate</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-12"></th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Avg Latency</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-28"></th>
               </tr>
             </thead>
             <tbody>
               {displayRuns.map((run) => {
-                const isExpanded = expandedRun === run.id;
-                const runResults = results[run.id];
                 const rate = passRates[run.id];
-                const typeBadge = run.run_type === "full"
-                  ? "bg-primary/15 text-primary border-primary/30"
-                  : "bg-warning/15 text-warning border-warning/30";
-                const pct = rate && rate.total > 0 ? (rate.passed / rate.total) * 100 : 0;
+                const pct = rate && rate.total > 0 ? Math.round((rate.passed / rate.total) * 100) : 0;
                 const barColor = rate && rate.total > 0 && rate.passed === rate.total ? "bg-success" : "bg-destructive";
                 const runNum = runNumberMap[run.id];
+                const typeBadge = run.run_type === "full"
+                  ? "bg-primary/15 text-primary border-primary/30"
+                  : "bg-purple-500/15 text-purple-400 border-purple-500/30";
+
                 return (
-                  <React.Fragment key={run.id}>
-                    <tr
-                      className="border-b border-border hover:bg-muted/20 transition-colors cursor-pointer"
-                      onClick={() => toggleExpand(run.id)}
-                    >
-                      <td className="px-3 py-2.5 text-muted-foreground">
-                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="font-mono text-xs text-foreground cursor-default">Run #{runNum}</span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="font-mono text-xs">
-                            {run.id}
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td className="px-3 py-2.5 text-foreground">
-                        {agentNames[run.agent_id] || run.agent_name || run.agent_id.slice(0, 8)}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${typeBadge}`}>
-                          {run.run_type}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-muted-foreground text-xs font-mono">
-                        {run.started_at ? new Date(run.started_at).toLocaleString() : "—"}
-                      </td>
-                      <td className="px-3 py-2.5"><StatusBadge status={run.status} /></td>
-                      <td className="px-3 py-2.5">
-                        {rate ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-foreground">{rate.passed}/{rate.total}</span>
-                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${barColor}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
+                  <tr key={run.id} className="border-b border-border hover:bg-muted/20 transition-colors">
+                    <td className="px-3 py-2.5">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="font-mono text-xs text-foreground cursor-default">Run #{runNum}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="font-mono text-xs">{run.id}</TooltipContent>
+                      </Tooltip>
+                    </td>
+                    <td className="px-3 py-2.5 text-foreground">
+                      {agentNames[run.agent_id] || run.agent_name || run.agent_id.slice(0, 8)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-mono border rounded-sm ${typeBadge}`}>
+                        {run.run_type}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5"><StatusBadge status={run.status} /></td>
+                    <td className="px-3 py-2.5">
+                      {rate ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-foreground">{rate.passed}/{rate.total} ({pct}%)</span>
+                          <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
                           </div>
-                        ) : (
-                          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteModal(run.id); }}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors active:scale-95"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr className="border-b border-border">
-                        <td colSpan={8} className="px-6 py-4 bg-muted/10">
-                          {loadingResults === run.id ? (
-                            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading results…
-                            </div>
-                          ) : runResults ? (
-                            runResults.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No results for this run.</p>
-                            ) : (
-                              <div className="space-y-3">
-                                {/* Legend */}
-                                <div className="flex items-center gap-3 pb-2 border-b border-border">
-                                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Legend:</span>
-                                  <span className="inline-flex items-center gap-1 text-[10px]"><span className="w-1.5 h-1.5 rounded-full bg-success" />PASS</span>
-                                  <span className="inline-flex items-center gap-1 text-[10px]"><span className="w-1.5 h-1.5 rounded-full bg-destructive" />FAIL</span>
-                                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />SKIP — parsing error</span>
-                                </div>
-                                {Object.entries(groupByTestCase(runResults)).map(([tcId, assertions]) => {
-                                  const scenario = assertions[0]?.scenario;
-                                  return (
-                                  <div key={tcId}>
-                                    <div className="mb-1.5 border-b border-border pb-1">
-                                      <p className="text-xs font-medium text-foreground">
-                                        {scenario || `Test Case ${tcId.slice(0, 12)}…`}
-                                      </p>
-                                      <p className="text-[10px] font-mono text-muted-foreground">{tcId}</p>
-                                    </div>
-                                    <div className="space-y-1 ml-2">
-                                      {assertions.map((r, i) => {
-                                        const label = formatAssertionLabel(r);
-                                        return (
-                                        <div key={r.id ?? i} className="flex items-center gap-2 text-sm">
-                                          <PassedBadge passed={r.passed} />
-                                          <span className="font-mono text-xs text-foreground">{label}</span>
-                                          <span className="text-xs text-muted-foreground truncate max-w-[400px]">{r.reason || "—"}</span>
-                                          {r.result_type === "semantic" && (
-                                            <span className="inline-flex px-1 py-0.5 text-[9px] font-mono bg-muted text-muted-foreground border border-border rounded-sm ml-auto shrink-0">AI judge</span>
-                                          )}
-                                        </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                  );
-                                })}
-                              </div>
-                            )
-                          ) : (
-                            <p className="text-sm text-muted-foreground">No results available.</p>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                        </div>
+                      ) : (
+                        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground">
+                      {rate?.avgLatency != null ? formatLatency(rate.avgLatency) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      {run.started_at ? formatDate(run.started_at) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openDetail(run.id)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:underline underline-offset-2 transition-colors"
+                      >
+                        View Details →
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteModal(run.id); }}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -294,7 +463,7 @@ export default function EvalRunHistory() {
         </div>
       )}
 
-      {/* Delete Eval Run Modal */}
+      {/* Delete Modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
           <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -306,12 +475,7 @@ export default function EvalRunHistory() {
               Delete this eval run and all its results? This cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteModal(null)}
-                className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
+              <button onClick={() => setDeleteModal(null)} className="px-3 py-1.5 text-sm font-medium border border-border rounded hover:bg-muted transition-colors">Cancel</button>
               <button
                 onClick={handleDeleteRun}
                 disabled={deletingId === deleteModal}
